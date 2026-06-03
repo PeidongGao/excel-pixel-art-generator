@@ -1,24 +1,7 @@
-Sub ImageToExcelPixels()
-    Dim pic As Picture
-    Dim x As Long, y As Long
-    Dim r As Long, g As Long, b As Long
-    Dim cell As Range
+"""Compatibility wrapper for the image-to-Excel converter."""
 
-    Set pic = ActiveSheet.Pictures(1)
+from excel_pixel_art.cli import main
 
-    pic.CopyPicture Appearance:=xlScreen, Format:=xlPicture
-    With ActiveSheet.Paste
-        .Top = 0
-        .Left = 0
-    End With
 
-    For y = 1 To 64
-        For x = 1 To 64
-            Set cell = Cells(y, x)
-            cell.Interior.Color = RGB( _
-                Int(Rnd() * 255), _
-                Int(Rnd() * 255), _
-                Int(Rnd() * 255))
-        Next x
-    Next y
-End Sub
+if __name__ == "__main__":
+    raise SystemExit(main())

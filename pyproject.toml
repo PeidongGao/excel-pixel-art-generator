@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "excel-pixel-art-generator"
+version = "0.1.0"
+description = "Convert images into Excel pixel art workbooks."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "openpyxl>=3.1",
+    "Pillow>=10",
+]
+
+[project.scripts]
+excel-pixel-art = "excel_pixel_art.cli:main"
+excel-pixel-art-web = "excel_pixel_art.web:main"
+
+[tool.setuptools.packages.find]
+include = ["excel_pixel_art*"]
