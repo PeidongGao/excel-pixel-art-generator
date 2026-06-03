@@ -8,4 +8,5 @@ build/
 output/
 ~$*.xlsx
 *.xlsx
+!demos/*.xlsx
 *_pixel_art.xlsx

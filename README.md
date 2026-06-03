@@ -10,6 +10,32 @@ Each generated workbook includes:
 
 The template uses Excel screen gridlines for editing, not real cell borders, so filled artwork can print without black border lines.
 
+## Demo Workbooks
+
+Two sample images are included so you can compare how resolution and color count affect the generated paint-by-number workbook.
+
+![Under The Wave Off Kanagawa sample](image/UnderTheWaveOffKanagawa.jpg)
+
+| Detail | Resolution | Colors | Demo workbook |
+| --- | ---: | ---: | --- |
+| Starter | 80 x 56 | 16 | [wave_a4_080x056_016colors.xlsx](demos/wave_a4_080x056_016colors.xlsx) |
+| Low | 120 x 85 | 32 | [wave_a4_120x085_032colors.xlsx](demos/wave_a4_120x085_032colors.xlsx) |
+| Medium | 160 x 113 | 64 | [wave_a4_160x113_064colors.xlsx](demos/wave_a4_160x113_064colors.xlsx) |
+| High | 200 x 141 | 128 | [wave_a4_200x141_128colors.xlsx](demos/wave_a4_200x141_128colors.xlsx) |
+| Maximum | 240 x 170 | 256 | [wave_a4_240x170_256colors.xlsx](demos/wave_a4_240x170_256colors.xlsx) |
+
+![Landscape photo sample](image/IMG_0148.JPG)
+
+| Detail | Resolution | Colors | Demo workbook |
+| --- | ---: | ---: | --- |
+| Starter | 80 x 56 | 16 | [landscape_a4_080x056_016colors.xlsx](demos/landscape_a4_080x056_016colors.xlsx) |
+| Low | 120 x 85 | 32 | [landscape_a4_120x085_032colors.xlsx](demos/landscape_a4_120x085_032colors.xlsx) |
+| Medium | 160 x 113 | 64 | [landscape_a4_160x113_064colors.xlsx](demos/landscape_a4_160x113_064colors.xlsx) |
+| High | 200 x 141 | 128 | [landscape_a4_200x141_128colors.xlsx](demos/landscape_a4_200x141_128colors.xlsx) |
+| Maximum | 240 x 170 | 256 | [landscape_a4_240x170_256colors.xlsx](demos/landscape_a4_240x170_256colors.xlsx) |
+
+All demo workbooks use A4 landscape paper setup and include `Reference`, `Template`, and `Color Index` sheets.
+
 ## Setup
 
 ```bash
