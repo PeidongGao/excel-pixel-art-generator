@@ -152,27 +152,53 @@ python img_to_excel.py path/to/image.png
 
 ## Web Upload
 
-Start the Streamlit upload app:
+There are two local web interfaces. Use the Streamlit app for normal use; keep the lightweight HTTP app as a minimal fallback.
+
+### Streamlit Interface
+
+Recommended for interactive upload/download.
+
+Install and start:
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
 excel-pixel-art-streamlit
 ```
 
-Then open http://127.0.0.1:8501, upload a painting or photo, tune paper size, resolution, and colors, then download the generated workbook.
+Then open:
 
-Streamlit can also run the app directly:
+```text
+http://127.0.0.1:8501
+```
+
+Use this interface to upload an image, choose paper size, set exact resolution, choose color count, preview the image, and download the generated workbook.
+
+Direct Streamlit command:
 
 ```bash
 streamlit run excel_pixel_art/streamlit_app.py
 ```
 
-The older lightweight local upload app is still available:
+### Lightweight HTTP Interface
+
+Minimal built-in upload form with no Streamlit dependency. Use this if you want the smallest local server.
+
+Start:
 
 ```bash
+source .venv/bin/activate
 excel-pixel-art-web
 ```
 
-Then open http://127.0.0.1:8000.
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+This interface also supports upload, paper size, resolution, color count, and workbook download, but it has a simpler form and no Streamlit preview layout.
 
 ## Development
 
