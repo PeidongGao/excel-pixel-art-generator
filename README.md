@@ -36,6 +36,26 @@ Two sample images are included so you can compare how resolution and color count
 
 All demo workbooks use A4 landscape paper setup and include `Reference`, `Template`, and `Color Index` sheets.
 
+## Image Credits and Rights
+
+Sample artwork:
+
+- `image/UnderTheWaveOffKanagawa.jpg` is Katsushika Hokusai's *Under the Wave off Kanagawa (Kanagawa oki nami ura), also known as The Great Wave*, from the series *Thirty-Six Views of Mount Fuji (Fugaku sanjurokkei)*.
+- Source: [The Art Institute of Chicago collection record](https://www.artic.edu/artworks/89503/under-the-wave-off-kanagawa-kanagawa-oki-nami-ura-also-known-as-the-great-wave-from-the-series-thirty-six-views-of-mount-fuji-fugaku-sanjurokkei).
+- The Art Institute of Chicago identifies this artwork image as public domain / CC0 in its public collection records.
+
+Sample photo:
+
+- `image/IMG_0148.JPG` is a user-provided landscape photograph taken by William and included here with permission for demo generation.
+
+Rights and liability:
+
+- This project is a software tool for transforming user-provided images into Excel paint-by-number workbooks.
+- Users are responsible for ensuring they have the legal right to upload, transform, distribute, print, sell, or otherwise use any image they process with this tool.
+- The project maintainers do not claim ownership of user-uploaded images or generated workbooks.
+- Generated outputs may still be subject to copyright, trademark, privacy, publicity, or other legal restrictions depending on the source image and jurisdiction.
+- This README is not legal advice. For commercial use or uncertain image rights, consult a qualified legal professional.
+
 ## Setup
 
 ```bash
