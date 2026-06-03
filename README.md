@@ -56,13 +56,15 @@ Sample photo:
 
 - `image/IMG_0148.JPG` is a user-provided landscape photograph taken by William and included here with permission for demo generation.
 
-Rights and liability:
+Personal-use rights and liability:
 
-- This project is a software tool for transforming user-provided images into Excel paint-by-number workbooks.
-- Users are responsible for ensuring they have the legal right to upload, transform, distribute, print, sell, or otherwise use any image they process with this tool.
-- The project maintainers do not claim ownership of user-uploaded images or generated workbooks.
-- Generated outputs may still be subject to copyright, trademark, privacy, publicity, or other legal restrictions depending on the source image and jurisdiction.
-- This README is not legal advice. For commercial use or uncertain image rights, consult a qualified legal professional.
+- This project is provided for personal, educational, research, and non-commercial creative use only.
+- Do not use this tool, the sample images, generated templates, generated workbooks, or derivative outputs for commercial sale, paid products, merchandise, advertising, client work, or other revenue-generating activity without independently securing all required rights and permissions.
+- Users are solely responsible for ensuring they have the legal right to upload, transform, distribute, print, share, or otherwise use any image they process with this tool.
+- The project maintainers do not claim ownership of user-uploaded images or generated workbooks, and do not grant any rights to third-party images.
+- Generated outputs may still be subject to copyright, trademark, privacy, publicity, moral rights, museum/license terms, or other legal restrictions depending on the source image and jurisdiction.
+- The hosted app and source code are provided as-is, without warranty. The project maintainers are not liable for misuse, infringement claims, losses, damages, takedown requests, printing costs, or other consequences arising from use of the tool or generated outputs.
+- This README is not legal advice. For any commercial use, public distribution, uncertain image rights, or jurisdiction-specific questions, consult a qualified legal professional before using the image or output.
 
 ## Setup
 

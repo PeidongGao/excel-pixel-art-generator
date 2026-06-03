@@ -10,3 +10,4 @@ output/
 *.xlsx
 !demos/*.xlsx
 *_pixel_art.xlsx
+WORK_LOG_*.md
