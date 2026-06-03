@@ -10,6 +10,14 @@ Each generated workbook includes:
 
 The template uses Excel screen gridlines for editing, not real cell borders, so filled artwork can print without black border lines.
 
+## Use Online
+
+Open the hosted Streamlit app:
+
+https://willgaolab-dvy5xga3u2xexllw7lei82.streamlit.app/
+
+Use it to upload an image, choose paper size, set exact Excel-cell resolution, choose indexed color count, and download the generated workbook.
+
 ## Demo Workbooks
 
 Two sample images are included so you can compare how resolution and color count affect the generated paint-by-number workbook.
@@ -151,6 +159,12 @@ python img_to_excel.py path/to/image.png
 ```
 
 ## Web Upload
+
+The hosted Streamlit app is the easiest way to use the tool:
+
+```text
+https://willgaolab-dvy5xga3u2xexllw7lei82.streamlit.app/
+```
 
 There are two local web interfaces. Use the Streamlit app for normal use; keep the lightweight HTTP app as a minimal fallback.
 
