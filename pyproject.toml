@@ -11,11 +11,13 @@ requires-python = ">=3.9"
 dependencies = [
     "openpyxl>=3.1",
     "Pillow>=10",
+    "streamlit>=1.35",
 ]
 
 [project.scripts]
 excel-pixel-art = "excel_pixel_art.cli:main"
 excel-pixel-art-web = "excel_pixel_art.web:main"
+excel-pixel-art-streamlit = "excel_pixel_art.streamlit_runner:main"
 
 [tool.setuptools.packages.find]
 include = ["excel_pixel_art*"]

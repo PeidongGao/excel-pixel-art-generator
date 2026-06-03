@@ -132,13 +132,27 @@ python img_to_excel.py path/to/image.png
 
 ## Web Upload
 
-Start the local upload app:
+Start the Streamlit upload app:
+
+```bash
+excel-pixel-art-streamlit
+```
+
+Then open http://127.0.0.1:8501, upload a painting or photo, tune paper size, resolution, and colors, then download the generated workbook.
+
+Streamlit can also run the app directly:
+
+```bash
+streamlit run excel_pixel_art/streamlit_app.py
+```
+
+The older lightweight local upload app is still available:
 
 ```bash
 excel-pixel-art-web
 ```
 
-Then open http://127.0.0.1:8000, upload a painting or photo, and download the generated workbook.
+Then open http://127.0.0.1:8000.
 
 ## Development
 
