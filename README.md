@@ -4,6 +4,17 @@ Convert an image into independent Digital and Physical pixel-art production outp
 
 Excel Pixel Art Generator is a WillGaoLab product made by William (Peidong) Gao.
 
+## Repository Roles
+
+- Primary development repository:
+  <https://github.com/PeidongGao/excel-pixel-art-generator>
+- WillGaoLab project repository and Streamlit deployment source:
+  <https://github.com/WillGaoLab/excel_pixel_art_generator>
+- WillGaoLab profile and project index:
+  <https://github.com/WillGaoLab/WillGaoLab>
+- Project website:
+  <https://williampeidonggao.com/resources/excel-pixel-art-generator/>
+
 ## Version 3
 
 Version 3 keeps the existing Digital Layer and Physical workbook workflows while upgrading Physical Poster Split and Printable PDF output.
