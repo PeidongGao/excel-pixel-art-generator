@@ -300,7 +300,7 @@ def _physical_layer(uploaded_file) -> None:
         key="generate_physical",
     ):
         with st.spinner("Generating Physical outputs..."):
-            outputs = _build_physical_outputs(
+            archive_bytes, archive_name = _build_physical_outputs(
                 uploaded_file=uploaded_file,
                 max_size=int(max_size),
                 cell_size=float(cell_size),
@@ -318,14 +318,13 @@ def _physical_layer(uploaded_file) -> None:
                 output_pdf=output_pdf,
                 output_masks=output_masks and generate_color_masks,
             )
-        for key, (content, filename, mime) in outputs.items():
-            st.download_button(
-                f"Download {key}",
-                data=content,
-                file_name=filename,
-                mime=mime,
-                key=f"download_physical_{key}",
-            )
+        st.download_button(
+            "Download Physical outputs ZIP",
+            data=archive_bytes,
+            file_name=archive_name,
+            mime="application/zip",
+            key="download_physical_outputs",
+        )
 
 
 def _build_digital_workbook(
@@ -394,29 +393,33 @@ def _build_physical_outputs(
     output_pdf: bool,
     output_masks: bool,
     **options,
-) -> dict[str, tuple[bytes, str, str]]:
+) -> tuple[bytes, str]:
+    import zipfile
+
     suffix = Path(uploaded_file.name).suffix or ".image"
     stem = _safe_stem(uploaded_file.name)
-    outputs: dict[str, tuple[bytes, str, str]] = {}
     with tempfile.TemporaryDirectory() as directory:
         directory_path = Path(directory)
         image_path = directory_path / f"upload{suffix}"
         image_path.write_bytes(uploaded_file.getvalue())
+        generated_paths = []
         if output_workbook:
             path = image_to_physical_excel(image_path, directory_path / f"{stem}_physical.xlsx", **options)
-            outputs["Workbook"] = (
-                path.read_bytes(), path.name,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
+            generated_paths.append(path)
         if output_pdf:
             pdf_options = {key: value for key, value in options.items() if key not in {"generate_color_masks", "max_color_masks"}}
             path = image_to_physical_pdf(image_path, directory_path / f"{stem}_printable.pdf", **pdf_options)
-            outputs["Printable PDF"] = (path.read_bytes(), path.name, "application/pdf")
+            generated_paths.append(path)
         if output_masks:
             mask_options = {key: value for key, value in options.items() if key not in {"generate_color_masks"}}
             path = image_to_physical_masks(image_path, directory_path / f"{stem}_masks.zip", **mask_options)
-            outputs["Masks"] = (path.read_bytes(), path.name, "application/zip")
-    return outputs
+            generated_paths.append(path)
+
+        archive_path = directory_path / f"{stem}_physical_outputs.zip"
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for path in generated_paths:
+                archive.write(path, path.name)
+        return archive_path.read_bytes(), archive_path.name
 
 
 def _build_workbook(uploaded_file, output_suffix: str, converter, **options) -> tuple[bytes, str]:

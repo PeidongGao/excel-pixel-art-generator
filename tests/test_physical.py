@@ -102,6 +102,23 @@ class PhysicalLayerTest(unittest.TestCase):
             self.assertTrue(palette["E2"].value)
             self.assertEqual(palette["G2"].value, "https://www.bricklink.com/catalogColors.asp")
 
+            liquitex_path = directory_path / "liquitex.xlsx"
+            image_to_physical_excel(image_path, liquitex_path, resolution=(4, 2), palette_mode="liquitex_basics_24")
+            liquitex_palette = load_workbook(liquitex_path)["Material Palette"]
+            used_materials = {
+                liquitex_palette.cell(row=row, column=5).value
+                for row in range(2, liquitex_palette.max_row + 1)
+            }
+            self.assertTrue(used_materials <= {
+                "Bright Aqua Green", "Burnt Sienna", "Burnt Umber", "Cadmium Orange Hue",
+                "Cadmium Red Deep Hue", "Cadmium Red Medium Hue", "Cadmium Yellow Deep Hue",
+                "Cadmium Yellow Medium Hue", "Dioxazine Purple", "Iridescent Gold",
+                "Iridescent Silver", "Ivory Black", "Mars Black", "Medium Magenta",
+                "Naphthol Crimson", "Permanent Green Light", "Permanent Hooker's Green",
+                "Permanent Light Blue", "Phthalo Blue", "Primary Blue", "Primary Yellow",
+                "Titanium White", "Ultramarine Blue", "Unbleached Titanium",
+            })
+
     def test_printable_pdf_and_mask_zip_outputs(self):
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)

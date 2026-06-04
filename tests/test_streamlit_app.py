@@ -1,5 +1,6 @@
 import io
 import unittest
+import zipfile
 
 from openpyxl import load_workbook
 from PIL import Image
@@ -92,7 +93,7 @@ class StreamlitAppTest(unittest.TestCase):
         self.assertEqual((physical["Print Template"].max_column, physical["Print Template"].max_row), (5, 7))
 
     def test_physical_output_builder_returns_selected_independent_files(self):
-        outputs = _build_physical_outputs(
+        archive_bytes, archive_name = _build_physical_outputs(
             uploaded_file=UploadedImage(),
             output_workbook=True,
             output_pdf=True,
@@ -111,9 +112,12 @@ class StreamlitAppTest(unittest.TestCase):
             max_color_masks=2,
         )
 
-        self.assertEqual(set(outputs), {"Workbook", "Printable PDF", "Masks"})
-        self.assertTrue(outputs["Printable PDF"][0].startswith(b"%PDF"))
-        self.assertTrue(outputs["Masks"][0].startswith(b"PK"))
+        self.assertEqual(archive_name, "source_physical_outputs.zip")
+        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+            self.assertEqual(
+                set(archive.namelist()),
+                {"source_physical.xlsx", "source_printable.pdf", "source_masks.zip"},
+            )
 
 
 if __name__ == "__main__":

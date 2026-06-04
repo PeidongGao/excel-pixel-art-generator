@@ -17,7 +17,7 @@ from .canvas import CANVAS_PRESETS, FIT_MODES, ORIENTATIONS, CanvasPreset
 MATERIAL_PALETTE_REFERENCES = {
     "adaptive": None,
     "lego": "https://www.bricklink.com/catalogColors.asp",
-    "liquitex_basics_24": "https://www.liquitex.com",
+    "liquitex_basics_24": "https://www.michaels.com/product/liquitex-basics-acrylic-24-color-paint-set-10268659",
 }
 
 # Screen approximations for matching images to purchasable physical materials.
@@ -39,18 +39,18 @@ LEGO_COLORS = [
 ]
 
 LIQUITEX_BASICS_24 = [
-    ("Titanium White", "F8F7F2"), ("Cadmium Yellow Light Hue", "F6E20B"),
-    ("Primary Yellow", "F3C600"), ("Yellow Oxide", "C99834"),
-    ("Cadmium Orange Hue", "E86B24"), ("Cadmium Red Light Hue", "D9362B"),
-    ("Primary Red", "B8203A"), ("Alizarin Crimson Hue Permanent", "7A263A"),
-    ("Light Portrait Pink", "E9A7A4"), ("Dioxazine Purple", "443064"),
-    ("Primary Blue", "1E4A91"), ("Ultramarine Blue", "263B82"),
-    ("Cerulean Blue Hue", "3C86B4"), ("Light Blue Permanent", "79B7D7"),
-    ("Phthalocyanine Green", "146A55"), ("Brilliant Yellow Green", "79A83B"),
-    ("Hooker's Green Hue Permanent", "315B3C"), ("Burnt Sienna", "8B4B32"),
-    ("Burnt Umber", "5B4438"), ("Raw Sienna", "B78345"),
-    ("Raw Umber", "665846"), ("Mars Black", "202020"),
-    ("Neutral Gray 5", "777777"), ("Gold", "B99545"),
+    ("Bright Aqua Green", "00A99D"), ("Burnt Sienna", "8A3F2B"),
+    ("Burnt Umber", "4B352A"), ("Cadmium Orange Hue", "F26A21"),
+    ("Cadmium Red Deep Hue", "9E1B32"), ("Cadmium Red Medium Hue", "D9272E"),
+    ("Cadmium Yellow Deep Hue", "F6A800"), ("Cadmium Yellow Medium Hue", "F5D000"),
+    ("Dioxazine Purple", "3E2465"), ("Iridescent Gold", "B08D35"),
+    ("Iridescent Silver", "B7B7B7"), ("Ivory Black", "1C1B1A"),
+    ("Mars Black", "101010"), ("Medium Magenta", "A62974"),
+    ("Naphthol Crimson", "B51E3A"), ("Permanent Green Light", "5AAE3A"),
+    ("Permanent Hooker's Green", "24543D"), ("Permanent Light Blue", "62A9D8"),
+    ("Phthalo Blue", "0B4F8A"), ("Primary Blue", "1F4E9D"),
+    ("Primary Yellow", "F4D400"), ("Titanium White", "F7F6F0"),
+    ("Ultramarine Blue", "273D8F"), ("Unbleached Titanium", "D2B48C"),
 ]
 
 MATERIAL_PALETTES = {
@@ -241,16 +241,37 @@ def _match_fixed_palette(image: Image.Image, materials: list[tuple[str, str]]) -
     output = Image.new("RGBA", image.size)
     source = image.load()
     target = output.load()
-    colors = [(name, value, tuple(bytes.fromhex(value))) for name, value in materials]
+    colors = [
+        (name, value, tuple(bytes.fromhex(value)), _rgb_to_lab(tuple(bytes.fromhex(value))))
+        for name, value in materials
+    ]
     for row in range(image.height):
         for column in range(image.width):
             red, green, blue, alpha = source[column, row]
-            name, value, rgb = min(
+            source_lab = _rgb_to_lab((red, green, blue))
+            name, value, rgb, _ = min(
                 colors,
-                key=lambda item: (red - item[2][0]) ** 2 + (green - item[2][1]) ** 2 + (blue - item[2][2]) ** 2,
+                key=lambda item: sum((source_lab[index] - item[3][index]) ** 2 for index in range(3)),
             )
             target[column, row] = (*rgb, alpha)
     return output, {value: name for name, value in materials}
+
+
+def _rgb_to_lab(rgb: tuple[int, int, int]) -> tuple[float, float, float]:
+    linear = []
+    for value in rgb:
+        channel = value / 255
+        linear.append(channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4)
+    red, green, blue = linear
+    x = (red * 0.4124 + green * 0.3576 + blue * 0.1805) / 0.95047
+    y = red * 0.2126 + green * 0.7152 + blue * 0.0722
+    z = (red * 0.0193 + green * 0.1192 + blue * 0.9505) / 1.08883
+
+    def transform(value: float) -> float:
+        return value ** (1 / 3) if value > 0.008856 else 7.787 * value + 16 / 116
+
+    x, y, z = transform(x), transform(y), transform(z)
+    return 116 * y - 16, 500 * (x - y), 200 * (y - z)
 
 
 def _split_image_pages(image: Image.Image, poster_pages: tuple[int, int]) -> list[Image.Image]:
