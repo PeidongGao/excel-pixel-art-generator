@@ -142,7 +142,7 @@ class ConverterTest(unittest.TestCase):
             self.assertEqual(sheet.max_column, 12)
             self.assertEqual(sheet.max_row, 7)
 
-    def test_physical_output_reuses_indexed_palette_and_aligns_masks(self):
+    def test_physical_output_uses_independent_resolution_palette_and_aligned_masks(self):
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
             image_path = directory_path / "source.png"
@@ -170,6 +170,9 @@ class ConverterTest(unittest.TestCase):
                 poster_pages=(2, 1),
                 generate_color_masks=True,
                 max_color_masks=2,
+                physical_resolution=(3, 2),
+                material_color_count=2,
+                physical_cell_size=4.0,
             )
 
             workbook = load_workbook(output_path)
@@ -195,15 +198,16 @@ class ConverterTest(unittest.TestCase):
             )
             self.assertEqual(reference.page_setup.fitToWidth, 1)
             self.assertEqual(template.page_setup.fitToHeight, 1)
+            self.assertEqual(template.max_column, 4)
+            self.assertEqual(template.max_row, 2)
+            self.assertEqual(print_template.max_column, 3)
+            self.assertEqual(print_template.max_row, 2)
             self.assertEqual(print_template.page_setup.fitToWidth, 2)
             self.assertEqual(len(print_template.col_breaks.brk), 1)
             self.assertEqual(len(print_template.row_breaks.brk), 0)
             self.assertEqual(color_index.max_row - 1, 4)
-            self.assertEqual(material_palette.max_row - 1, 4)
-            self.assertEqual(
-                list(color_index.values),
-                list(material_palette.values),
-            )
+            self.assertEqual(material_palette.max_row - 1, 2)
+            self.assertNotEqual(list(color_index.values), list(material_palette.values))
             self.assertEqual(first_mask.oddHeader.center.text, f"Color 1 - {material_palette['B2'].value}")
             self.assertEqual(first_mask.sheet_view.showGridLines, False)
             self.assertEqual(first_mask.print_options.gridLines, False)
@@ -228,6 +232,8 @@ class ConverterTest(unittest.TestCase):
                 resolution=(2, 2),
                 include_excel_output=False,
                 physical_output=True,
+                physical_resolution=(3, 4),
+                material_color_count=2,
             )
 
             workbook = load_workbook(output_path)
@@ -235,6 +241,8 @@ class ConverterTest(unittest.TestCase):
                 workbook.sheetnames,
                 ["Print Reference", "Print Template", "Material Palette"],
             )
+            self.assertEqual(workbook["Print Template"].max_column, 3)
+            self.assertEqual(workbook["Print Template"].max_row, 4)
 
     def test_rejects_invalid_size_options(self):
         with self.assertRaises(ValueError):
@@ -260,6 +268,15 @@ class ConverterTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             image_to_excel("image.png", "output.xlsx", max_color_masks=0)
+
+        with self.assertRaises(ValueError):
+            image_to_excel("image.png", "output.xlsx", physical_resolution=(0, 10))
+
+        with self.assertRaises(ValueError):
+            image_to_excel("image.png", "output.xlsx", material_color_count=1)
+
+        with self.assertRaises(ValueError):
+            image_to_excel("image.png", "output.xlsx", physical_cell_size=0)
 
         with self.assertRaises(ValueError):
             image_to_excel("image.png", "output.xlsx", include_excel_output=False)

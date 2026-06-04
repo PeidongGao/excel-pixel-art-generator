@@ -29,6 +29,9 @@ def image_to_excel(
     poster_pages: tuple[int, int] = (1, 1),
     generate_color_masks: bool = False,
     max_color_masks: int | None = None,
+    physical_resolution: tuple[int, int] | None = None,
+    material_color_count: int | None = None,
+    physical_cell_size: float | None = None,
 ) -> Path:
     """Convert an image into an Excel workbook with one colored cell per pixel."""
     image_path = Path(image_path)
@@ -44,11 +47,17 @@ def image_to_excel(
         raise ValueError("cell_size must be greater than 0")
     if color_count < 2 or color_count > 256:
         raise ValueError("color_count must be between 2 and 256")
+    if material_color_count is not None and (material_color_count < 2 or material_color_count > 256):
+        raise ValueError("material_color_count must be between 2 and 256")
+    if physical_cell_size is not None and physical_cell_size <= 0:
+        raise ValueError("physical_cell_size must be greater than 0")
     if not include_excel_output and not physical_output:
         raise ValueError("at least one output must be enabled")
     _validate_print_options(poster_pages, max_color_masks)
     if resolution is not None:
         _validate_resolution(resolution)
+    if physical_resolution is not None:
+        _validate_resolution(physical_resolution)
     if orientation not in ORIENTATIONS:
         raise ValueError(f"orientation must be one of: {', '.join(sorted(ORIENTATIONS))}")
     if fit not in FIT_MODES:
@@ -56,78 +65,107 @@ def image_to_excel(
     if not image_path.exists():
         raise FileNotFoundError(f"Input image not found: {image_path}")
 
-    image = Image.open(image_path).convert("RGBA")
-    if resolution is not None:
-        canvas_width, canvas_height = resolution
-        image = _fit_image_to_canvas(
-            image,
-            size=(canvas_width, canvas_height),
-            fit=fit,
-            background_color=background_color,
-        )
-    elif canvas_preset is None:
-        image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
-        canvas_width, canvas_height = image.size
-    else:
-        canvas_width, canvas_height = _canvas_dimensions(
-            canvas_preset,
-            max_size=max_size,
-            orientation=orientation,
-            image_size=image.size,
-        )
-        image = _fit_image_to_canvas(
-            image,
-            size=(canvas_width, canvas_height),
-            fit=fit,
-            background_color=background_color,
-        )
-
+    source_image = Image.open(image_path).convert("RGBA")
     workbook = Workbook()
-    width, height = canvas_width, canvas_height
-    indexed_image = _reduce_colors(image, color_count)
-    indexed_pixels = indexed_image.load()
-    indexed_palette, indexed_color_counts = _build_palette(indexed_pixels, width, height)
     default_sheet = workbook.active
 
     if include_excel_output:
+        digital_image = _prepare_canvas_image(
+            source_image,
+            canvas_preset=canvas_preset,
+            max_size=max_size,
+            resolution=resolution,
+            orientation=orientation,
+            fit=fit,
+            background_color=background_color,
+        )
+        digital_image = _reduce_colors(digital_image, color_count)
+        digital_width, digital_height = digital_image.size
+        digital_pixels = digital_image.load()
+        digital_palette, digital_color_counts = _build_palette(
+            digital_pixels,
+            digital_width,
+            digital_height,
+        )
+
         default_sheet.title = "Reference"
-        _write_reference_sheet(default_sheet, indexed_pixels, width, height, cell_size)
-        _configure_page(default_sheet, canvas_preset, orientation, indexed_image.size)
+        _write_reference_sheet(default_sheet, digital_pixels, digital_width, digital_height, cell_size)
+        _configure_page(default_sheet, canvas_preset, orientation, digital_image.size)
 
         template_sheet = workbook.create_sheet("Template")
-        _write_template_sheet(template_sheet, indexed_pixels, indexed_palette, width, height, cell_size)
-        _configure_page(template_sheet, canvas_preset, orientation, indexed_image.size)
+        _write_template_sheet(
+            template_sheet,
+            digital_pixels,
+            digital_palette,
+            digital_width,
+            digital_height,
+            cell_size,
+        )
+        _configure_page(template_sheet, canvas_preset, orientation, digital_image.size)
 
         index_sheet = workbook.create_sheet("Color Index")
-        _write_color_index_sheet(index_sheet, indexed_palette, indexed_color_counts)
+        _write_color_index_sheet(index_sheet, digital_palette, digital_color_counts)
     else:
         workbook.remove(default_sheet)
 
     if physical_output:
+        material_color_count = material_color_count if material_color_count is not None else color_count
+        physical_cell_size = physical_cell_size if physical_cell_size is not None else cell_size
+        physical_image = _prepare_canvas_image(
+            source_image,
+            canvas_preset=canvas_preset,
+            max_size=max_size,
+            resolution=physical_resolution if physical_resolution is not None else resolution,
+            orientation=orientation,
+            fit=fit,
+            background_color=background_color,
+        )
+        physical_image = _reduce_colors(physical_image, material_color_count)
+        physical_width, physical_height = physical_image.size
+        physical_pixels = physical_image.load()
+        material_palette, material_color_counts = _build_palette(
+            physical_pixels,
+            physical_width,
+            physical_height,
+        )
+
         physical_reference = workbook.create_sheet("Print Reference")
-        _write_reference_sheet(physical_reference, indexed_pixels, width, height, cell_size)
-        _configure_page(physical_reference, canvas_preset, orientation, indexed_image.size)
-        _configure_print_mode(physical_reference, width, height, poster_pages)
+        _write_reference_sheet(
+            physical_reference,
+            physical_pixels,
+            physical_width,
+            physical_height,
+            physical_cell_size,
+        )
+        _configure_page(physical_reference, canvas_preset, orientation, physical_image.size)
+        _configure_print_mode(physical_reference, physical_width, physical_height, poster_pages)
 
         physical_template = workbook.create_sheet("Print Template")
-        _write_template_sheet(physical_template, indexed_pixels, indexed_palette, width, height, cell_size)
-        _configure_page(physical_template, canvas_preset, orientation, indexed_image.size)
-        _configure_print_mode(physical_template, width, height, poster_pages)
+        _write_template_sheet(
+            physical_template,
+            physical_pixels,
+            material_palette,
+            physical_width,
+            physical_height,
+            physical_cell_size,
+        )
+        _configure_page(physical_template, canvas_preset, orientation, physical_image.size)
+        _configure_print_mode(physical_template, physical_width, physical_height, poster_pages)
 
         material_sheet = workbook.create_sheet("Material Palette")
-        _write_color_index_sheet(material_sheet, indexed_palette, indexed_color_counts)
+        _write_color_index_sheet(material_sheet, material_palette, material_color_counts)
 
     if physical_output and generate_color_masks:
         _write_color_mask_sheets(
             workbook=workbook,
-            pixels=indexed_pixels,
-            palette=indexed_palette,
-            width=width,
-            height=height,
-            cell_size=cell_size,
+            pixels=physical_pixels,
+            palette=material_palette,
+            width=physical_width,
+            height=physical_height,
+            cell_size=physical_cell_size,
             canvas_preset=canvas_preset,
             orientation=orientation,
-            image_size=indexed_image.size,
+            image_size=physical_image.size,
             poster_pages=poster_pages,
             max_color_masks=max_color_masks,
         )
@@ -135,6 +173,41 @@ def image_to_excel(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_path)
     return output_path
+
+
+def _prepare_canvas_image(
+    source_image: Image.Image,
+    canvas_preset: CanvasPreset | None,
+    max_size: int,
+    resolution: tuple[int, int] | None,
+    orientation: str,
+    fit: str,
+    background_color: str,
+) -> Image.Image:
+    image = source_image.copy()
+    if resolution is not None:
+        return _fit_image_to_canvas(
+            image,
+            size=resolution,
+            fit=fit,
+            background_color=background_color,
+        )
+    if canvas_preset is None:
+        image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        return image
+
+    canvas_size = _canvas_dimensions(
+        canvas_preset,
+        max_size=max_size,
+        orientation=orientation,
+        image_size=image.size,
+    )
+    return _fit_image_to_canvas(
+        image,
+        size=canvas_size,
+        fit=fit,
+        background_color=background_color,
+    )
 
 
 def _build_palette(pixels, width: int, height: int) -> tuple[dict[str, int], dict[str, int]]:
