@@ -70,7 +70,7 @@ def image_to_physical_excel(
     orientation: str = "auto",
     fit: str = "contain",
     background_color: str = "FFFFFF",
-    poster_pages: tuple[int, int] = (2, 2),
+    poster_pages: tuple[int, int] = (1, 1),
     generate_color_masks: bool = False,
     max_color_masks: int | None = None,
     palette_mode: str = "adaptive",
@@ -114,12 +114,23 @@ def image_to_physical_excel(
     reference_sheet.title = "Print Reference"
     _write_reference_sheet(reference_sheet, pixels, width, height, cell_size)
     _configure_page(reference_sheet, canvas_preset, orientation, physical_image.size)
-    _configure_print_mode(reference_sheet, width, height, poster_pages)
+    _configure_print_mode(reference_sheet, width, height, (1, 1))
 
-    template_sheet = workbook.create_sheet("Print Template")
+    template_sheet = workbook.create_sheet("Master Layout")
     _write_template_sheet(template_sheet, pixels, palette, width, height, cell_size)
     _configure_page(template_sheet, canvas_preset, orientation, physical_image.size)
-    _configure_print_mode(template_sheet, width, height, poster_pages)
+    _configure_print_mode(template_sheet, width, height, (1, 1))
+
+    if poster_pages != (1, 1):
+        _write_tile_sheets(
+            workbook,
+            physical_image,
+            palette,
+            cell_size,
+            canvas_preset,
+            orientation,
+            poster_pages,
+        )
 
     material_sheet = workbook.create_sheet("Material Palette")
     _write_color_index_sheet(
@@ -141,7 +152,6 @@ def image_to_physical_excel(
             canvas_preset=canvas_preset,
             orientation=orientation,
             image_size=physical_image.size,
-            poster_pages=poster_pages,
             max_color_masks=max_color_masks,
         )
 
@@ -158,9 +168,9 @@ def image_to_physical_pdf(
     """Generate a standalone tiled printable PDF reference."""
     image_path = Path(image_path)
     output_path = Path(output_path)
-    poster_pages = options.pop("poster_pages", (2, 2))
+    poster_pages = options.pop("poster_pages", (1, 1))
     image, _ = _prepare_physical_from_options(image_path, options)
-    pages = _split_image_pages(image.convert("RGB"), poster_pages)
+    pages = _printable_pages(image.convert("RGB"), poster_pages)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     pages[0].save(output_path, "PDF", resolution=300, save_all=True, append_images=pages[1:])
     return output_path
@@ -172,7 +182,7 @@ def image_to_physical_masks(
     max_color_masks: int | None = None,
     **options,
 ) -> Path:
-    """Generate a ZIP containing numbered black-and-white material masks."""
+    """Generate a ZIP containing one whole-canvas PDF mask per material color."""
     image_path = Path(image_path)
     output_path = Path(output_path)
     image, names = _prepare_physical_from_options(image_path, options)
@@ -194,9 +204,8 @@ def image_to_physical_masks(
                     red, green, blue, alpha = pixels[column, row]
                     if alpha > 0 and f"{red:02X}{green:02X}{blue:02X}" == color:
                         mask_pixels[column, row] = 0
-            name = names.get(color, color).replace("/", "-")
-            temporary = output_path.parent / f"{number:03d}_{name}.png"
-            mask.resize((width * 8, height * 8), Image.Resampling.NEAREST).save(temporary)
+            temporary = output_path.parent / f"Color_{number:02d}.pdf"
+            _fit_page(mask.convert("RGB")).save(temporary, "PDF", resolution=300)
             archive.write(temporary, temporary.name)
             temporary.unlink()
     return output_path
@@ -283,8 +292,51 @@ def _split_image_pages(image: Image.Image, poster_pages: tuple[int, int]) -> lis
             right = round(image.width * (page_x + 1) / pages_wide)
             top = round(image.height * page_y / pages_tall)
             bottom = round(image.height * (page_y + 1) / pages_tall)
-            pages.append(image.crop((left, top, right, bottom)).resize((1800, 2400), Image.Resampling.NEAREST))
+            pages.append(_fit_page(image.crop((left, top, right, bottom))))
     return pages
+
+
+def _printable_pages(image: Image.Image, poster_pages: tuple[int, int]) -> list[Image.Image]:
+    pages = [_fit_page(image)]
+    if poster_pages != (1, 1):
+        pages.extend(_split_image_pages(image, poster_pages))
+    return pages
+
+
+def _fit_page(image: Image.Image) -> Image.Image:
+    page = Image.new("RGB", (1800, 2400), "white")
+    fitted = image.copy()
+    fitted.thumbnail((1700, 2300), Image.Resampling.NEAREST)
+    page.paste(fitted, ((page.width - fitted.width) // 2, (page.height - fitted.height) // 2))
+    return page
+
+
+def _write_tile_sheets(
+    workbook: Workbook,
+    image: Image.Image,
+    palette: dict[str, int],
+    cell_size: float,
+    canvas_preset: CanvasPreset | None,
+    orientation: str,
+    poster_pages: tuple[int, int],
+) -> None:
+    pages_wide, pages_tall = poster_pages
+    for page_y in range(pages_tall):
+        for page_x in range(pages_wide):
+            left = round(image.width * page_x / pages_wide)
+            right = round(image.width * (page_x + 1) / pages_wide)
+            top = round(image.height * page_y / pages_tall)
+            bottom = round(image.height * (page_y + 1) / pages_tall)
+            tile = image.crop((left, top, right, bottom))
+            tile_pixels = tile.load()
+            sheet = workbook.create_sheet(f"Tile_{_tile_row_label(page_y)}{page_x + 1}")
+            _write_template_sheet(sheet, tile_pixels, palette, tile.width, tile.height, cell_size)
+            _configure_page(sheet, canvas_preset, orientation, tile.size)
+            _configure_print_mode(sheet, tile.width, tile.height, (1, 1))
+
+
+def _tile_row_label(index: int) -> str:
+    return _column_name(index + 1)
 
 
 def _write_color_mask_sheets(
@@ -297,7 +349,6 @@ def _write_color_mask_sheets(
     canvas_preset: CanvasPreset | None,
     orientation: str,
     image_size: tuple[int, int],
-    poster_pages: tuple[int, int],
     max_color_masks: int | None,
 ) -> None:
     colors = sorted(palette, key=palette.get)
@@ -322,7 +373,7 @@ def _write_color_mask_sheets(
                     sheet.cell(row=row + 1, column=column + 1).fill = mask_fill
 
         _configure_page(sheet, canvas_preset, orientation, image_size)
-        _configure_print_mode(sheet, width, height, poster_pages)
+        _configure_print_mode(sheet, width, height, (1, 1))
 
 
 def _prepare_canvas_image(
@@ -601,8 +652,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--orientation", choices=sorted(ORIENTATIONS), default="auto")
     parser.add_argument("--fit", choices=sorted(FIT_MODES), default="contain")
     parser.add_argument("--background-color", default="FFFFFF")
-    parser.add_argument("--pages-wide", type=int, default=2)
-    parser.add_argument("--pages-tall", type=int, default=2)
+    parser.add_argument("--pages-wide", type=int, default=1)
+    parser.add_argument("--pages-tall", type=int, default=1)
     parser.add_argument("--color-masks", action="store_true")
     parser.add_argument("--max-color-masks", type=int)
     return parser

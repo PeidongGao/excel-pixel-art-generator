@@ -87,10 +87,20 @@ class StreamlitAppTest(unittest.TestCase):
         self.assertEqual(digital.sheetnames, ["Reference", "Template", "Color Index"])
         self.assertEqual(
             physical.sheetnames,
-            ["Print Reference", "Print Template", "Material Palette", "Material Mask 001"],
+            [
+                "Print Reference",
+                "Master Layout",
+                "Tile_A1",
+                "Tile_A2",
+                "Tile_B1",
+                "Tile_B2",
+                "Material Palette",
+                "Material Mask 001",
+            ],
         )
         self.assertEqual((digital["Template"].max_column, digital["Template"].max_row), (8, 6))
-        self.assertEqual((physical["Print Template"].max_column, physical["Print Template"].max_row), (5, 7))
+        self.assertEqual((physical["Master Layout"].max_column, physical["Master Layout"].max_row), (5, 7))
+        self.assertEqual(physical["Material Mask 001"].page_setup.fitToWidth, 1)
 
     def test_physical_output_builder_returns_selected_independent_files(self):
         archive_bytes, archive_name = _build_physical_outputs(
@@ -118,6 +128,11 @@ class StreamlitAppTest(unittest.TestCase):
                 set(archive.namelist()),
                 {"source_physical.xlsx", "source_printable.pdf", "source_masks.zip"},
             )
+            workbook = load_workbook(io.BytesIO(archive.read("source_physical.xlsx")))
+            self.assertFalse(any(name.startswith("Material Mask") for name in workbook.sheetnames))
+            with zipfile.ZipFile(io.BytesIO(archive.read("source_masks.zip"))) as masks:
+                self.assertTrue(all(name.startswith("Color_") for name in masks.namelist()))
+                self.assertFalse(any("Tile_" in name for name in masks.namelist()))
 
 
 if __name__ == "__main__":

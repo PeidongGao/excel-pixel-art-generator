@@ -404,7 +404,12 @@ def _build_physical_outputs(
         image_path.write_bytes(uploaded_file.getvalue())
         generated_paths = []
         if output_workbook:
-            path = image_to_physical_excel(image_path, directory_path / f"{stem}_physical.xlsx", **options)
+            workbook_options = {
+                key: value
+                for key, value in options.items()
+                if key not in {"generate_color_masks", "max_color_masks"}
+            }
+            path = image_to_physical_excel(image_path, directory_path / f"{stem}_physical.xlsx", **workbook_options)
             generated_paths.append(path)
         if output_pdf:
             pdf_options = {key: value for key, value in options.items() if key not in {"generate_color_masks", "max_color_masks"}}
