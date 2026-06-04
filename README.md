@@ -95,7 +95,7 @@ Material references:
 
 Open the hosted Streamlit app:
 
-https://willgaolab-dvy5xga3u2xexllw7lei82.streamlit.app/
+https://excelpixelartgenerator-8tq4k2vmpkxskubnxzrxeo.streamlit.app/
 
 Use it to upload an image and independently generate Digital workbooks or Physical production-output ZIPs.
 
@@ -285,7 +285,7 @@ python img_to_excel.py path/to/image.png
 The hosted Streamlit app is the easiest way to use the tool:
 
 ```text
-https://willgaolab-dvy5xga3u2xexllw7lei82.streamlit.app/
+https://excelpixelartgenerator-8tq4k2vmpkxskubnxzrxeo.streamlit.app/
 ```
 
 There are two local web interfaces. Use the Streamlit app for normal use; keep the lightweight HTTP app as a minimal fallback.
