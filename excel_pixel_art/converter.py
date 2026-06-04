@@ -32,6 +32,11 @@ def image_to_excel(
     physical_resolution: tuple[int, int] | None = None,
     material_color_count: int | None = None,
     physical_cell_size: float | None = None,
+    physical_canvas_size: str | None = None,
+    physical_max_size: int | None = None,
+    physical_orientation: str | None = None,
+    physical_fit: str | None = None,
+    physical_background_color: str | None = None,
 ) -> Path:
     """Convert an image into an Excel workbook with one colored cell per pixel."""
     image_path = Path(image_path)
@@ -40,9 +45,16 @@ def image_to_excel(
     orientation = orientation.lower()
     fit = fit.lower()
     background_color = _normalize_hex_color(background_color)
+    physical_canvas_preset = _get_canvas_preset(physical_canvas_size)
+    physical_orientation = (physical_orientation or orientation).lower()
+    physical_fit = (physical_fit or fit).lower()
+    physical_background_color = _normalize_hex_color(physical_background_color or background_color)
+    physical_max_size = physical_max_size if physical_max_size is not None else max_size
 
     if max_size < 1:
         raise ValueError("max_size must be at least 1")
+    if physical_max_size < 1:
+        raise ValueError("physical_max_size must be at least 1")
     if cell_size <= 0:
         raise ValueError("cell_size must be greater than 0")
     if color_count < 2 or color_count > 256:
@@ -62,6 +74,10 @@ def image_to_excel(
         raise ValueError(f"orientation must be one of: {', '.join(sorted(ORIENTATIONS))}")
     if fit not in FIT_MODES:
         raise ValueError(f"fit must be one of: {', '.join(sorted(FIT_MODES))}")
+    if physical_orientation not in ORIENTATIONS:
+        raise ValueError(f"physical_orientation must be one of: {', '.join(sorted(ORIENTATIONS))}")
+    if physical_fit not in FIT_MODES:
+        raise ValueError(f"physical_fit must be one of: {', '.join(sorted(FIT_MODES))}")
     if not image_path.exists():
         raise FileNotFoundError(f"Input image not found: {image_path}")
 
@@ -113,12 +129,12 @@ def image_to_excel(
         physical_cell_size = physical_cell_size if physical_cell_size is not None else cell_size
         physical_image = _prepare_canvas_image(
             source_image,
-            canvas_preset=canvas_preset,
-            max_size=max_size,
+            canvas_preset=physical_canvas_preset,
+            max_size=physical_max_size,
             resolution=physical_resolution if physical_resolution is not None else resolution,
-            orientation=orientation,
-            fit=fit,
-            background_color=background_color,
+            orientation=physical_orientation,
+            fit=physical_fit,
+            background_color=physical_background_color,
         )
         physical_image = _reduce_colors(physical_image, material_color_count)
         physical_width, physical_height = physical_image.size
@@ -137,7 +153,7 @@ def image_to_excel(
             physical_height,
             physical_cell_size,
         )
-        _configure_page(physical_reference, canvas_preset, orientation, physical_image.size)
+        _configure_page(physical_reference, physical_canvas_preset, physical_orientation, physical_image.size)
         _configure_print_mode(physical_reference, physical_width, physical_height, poster_pages)
 
         physical_template = workbook.create_sheet("Print Template")
@@ -149,7 +165,7 @@ def image_to_excel(
             physical_height,
             physical_cell_size,
         )
-        _configure_page(physical_template, canvas_preset, orientation, physical_image.size)
+        _configure_page(physical_template, physical_canvas_preset, physical_orientation, physical_image.size)
         _configure_print_mode(physical_template, physical_width, physical_height, poster_pages)
 
         material_sheet = workbook.create_sheet("Material Palette")
@@ -163,8 +179,8 @@ def image_to_excel(
             width=physical_width,
             height=physical_height,
             cell_size=physical_cell_size,
-            canvas_preset=canvas_preset,
-            orientation=orientation,
+            canvas_preset=physical_canvas_preset,
+            orientation=physical_orientation,
             image_size=physical_image.size,
             poster_pages=poster_pages,
             max_color_masks=max_color_masks,

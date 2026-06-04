@@ -244,6 +244,38 @@ class ConverterTest(unittest.TestCase):
             self.assertEqual(workbook["Print Template"].max_column, 3)
             self.assertEqual(workbook["Print Template"].max_row, 4)
 
+    def test_physical_canvas_settings_are_independent_from_digital_canvas(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            image_path = directory_path / "source.png"
+            output_path = directory_path / "independent_canvases.xlsx"
+
+            Image.new("RGBA", (20, 10), (20, 40, 60, 255)).save(image_path)
+
+            image_to_excel(
+                image_path,
+                output_path,
+                canvas_size="a4",
+                resolution=(12, 7),
+                orientation="landscape",
+                include_excel_output=True,
+                physical_output=True,
+                physical_canvas_size="letter",
+                physical_resolution=(5, 9),
+                physical_orientation="portrait",
+            )
+
+            workbook = load_workbook(output_path)
+            digital = workbook["Template"]
+            physical = workbook["Print Template"]
+
+            self.assertEqual((digital.max_column, digital.max_row), (12, 7))
+            self.assertEqual((physical.max_column, physical.max_row), (5, 9))
+            self.assertEqual(digital.page_setup.paperSize, 9)
+            self.assertEqual(digital.page_setup.orientation, "landscape")
+            self.assertEqual(physical.page_setup.paperSize, 1)
+            self.assertEqual(physical.page_setup.orientation, "portrait")
+
     def test_rejects_invalid_size_options(self):
         with self.assertRaises(ValueError):
             image_to_excel("image.png", "output.xlsx", max_size=0)
