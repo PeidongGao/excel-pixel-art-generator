@@ -1,10 +1,18 @@
 # Excel Pixel Art Generator
 
-Convert an image into an Excel workbook where each cell is colored like a pixel.
+Convert an image into independent Digital and Physical pixel-art production outputs.
 
 Excel Pixel Art Generator is a WillGaoLab product made by William (Peidong) Gao.
 
-Each generated workbook includes:
+## Version 2
+
+Version 2 separates the project into two independent workflows. The uploaded image is the only shared input.
+
+### Digital Layer
+
+The Digital Layer creates the standard Excel pixel-art workbook. Its default configuration is A4, `128 x 128` cells, and 48 indexed colors.
+
+Each Digital workbook includes:
 
 - `Reference` - the finished colored pixel-art image.
 - `Template` - a paper-style paint-by-number canvas with light gray color index numbers.
@@ -12,13 +20,41 @@ Each generated workbook includes:
 
 The template uses Excel screen gridlines for editing, not real cell borders, so filled artwork can print without black border lines.
 
+### Physical Layer
+
+The Physical Layer is implemented independently in `excel_pixel_art/physical.py`. It has its own paper size, orientation, image fit, resolution, cell size, material palette, poster split, color masks, and outputs.
+
+Material palette modes:
+
+- `Adaptive` - derives a freely sized palette from the uploaded image.
+- `LEGO` - matches the image to named LEGO color approximations.
+- `Liquitex Basics 24` - matches the image to the referenced Liquitex BASICS 24-color set.
+
+Physical output options:
+
+- `Workbook` - print reference, numbered print template, material palette, and optional mask sheets.
+- `Printable PDF` - printable image pages, with optional poster splitting.
+- `Masks` - a ZIP containing one black-and-white mask image per selected material color.
+
+Selected Physical outputs are packaged together into one downloadable ZIP.
+
+Poster Split controls how the Physical workbook and printable PDF are divided across pages. Color Masks remain a separately selectable output.
+
+LEGO and Liquitex colors are screen approximations used for matching. Physical color appearance varies by lighting, material, paint opacity, surface, and drying.
+
+Material references:
+
+- LEGO official color reference: [BrickLink Color Guide](https://www.bricklink.com/catalogColors.asp)
+- Liquitex official product site: [Liquitex](https://www.liquitex.com)
+- Referenced 24-color set: [Liquitex BASICS Acrylic 24 Color Paint Set](https://www.michaels.com/product/liquitex-basics-acrylic-24-color-paint-set-10268659)
+
 ## Use Online
 
 Open the hosted Streamlit app:
 
 https://willgaolab-dvy5xga3u2xexllw7lei82.streamlit.app/
 
-Use it to upload an image, choose paper size, set exact Excel-cell resolution, choose indexed color count, and download the generated workbook.
+Use it to upload an image and independently generate Digital workbooks or Physical production-output ZIPs.
 
 ## Demo Workbooks
 
@@ -79,6 +115,8 @@ python -m pip install -e .
 
 ## Usage
 
+### Digital Layer CLI
+
 ```bash
 excel-pixel-art path/to/image.png
 excel-pixel-art path/to/image.png -o output.xlsx --max-size 96
@@ -122,6 +160,41 @@ excel-pixel-art image/IMG_0148.JPG -o output/landscape_a4_high_detail_240x170_25
 ```
 
 This keeps the workbook print setup as A4 landscape while using a `240 x 170` Excel-cell template and a 256-color index.
+
+### Physical Layer CLI
+
+Generate the default A4, `128 x 128`, 48-color Adaptive Physical workbook:
+
+```bash
+excel-pixel-art-physical path/to/image.png
+```
+
+Generate a LEGO-matched, tiled Physical workbook:
+
+```bash
+excel-pixel-art-physical path/to/image.png \
+  -o output/lego_physical.xlsx \
+  --palette lego \
+  --canvas-size a4 \
+  --resolution 128x128 \
+  --pages-wide 2 \
+  --pages-tall 2
+```
+
+Generate a Liquitex BASICS 24-color workbook with mask sheets:
+
+```bash
+excel-pixel-art-physical path/to/image.png \
+  -o output/liquitex_physical.xlsx \
+  --palette liquitex_basics_24 \
+  --color-masks
+```
+
+Physical CLI palette choices:
+
+- `adaptive`
+- `lego`
+- `liquitex_basics_24`
 
 Common canvas presets:
 
@@ -192,7 +265,7 @@ Then open:
 http://127.0.0.1:8501
 ```
 
-Use this interface to upload an image, choose paper size, set exact resolution, choose color count, preview the image, and download the generated workbook.
+Use this interface to upload an image, configure the independent Digital and Physical layers, and download their separate outputs.
 
 Direct Streamlit command:
 
@@ -224,5 +297,5 @@ This interface also supports upload, paper size, resolution, color count, and wo
 Run the tests with:
 
 ```bash
-python -m unittest
+python -m unittest discover -s tests
 ```

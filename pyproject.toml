@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "excel-pixel-art-generator"
-version = "0.1.0"
-description = "Convert images into Excel pixel art workbooks."
+version = "0.2.0"
+description = "Generate independent Digital and Physical pixel-art production outputs."
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
