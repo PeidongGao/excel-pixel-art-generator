@@ -142,6 +142,52 @@ class ConverterTest(unittest.TestCase):
             self.assertEqual(sheet.max_column, 12)
             self.assertEqual(sheet.max_row, 7)
 
+    def test_print_mode_adds_poster_splitting_and_color_masks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            image_path = directory_path / "source.png"
+            output_path = directory_path / "print_mode.xlsx"
+
+            image = Image.new("RGBA", (4, 2))
+            for row in range(2):
+                for column in range(4):
+                    color = (255, 0, 0, 255) if column < 2 else (0, 0, 255, 255)
+                    image.putpixel((column, row), color)
+            image.save(image_path)
+
+            image_to_excel(
+                image_path,
+                output_path,
+                resolution=(4, 2),
+                color_count=2,
+                print_mode=True,
+                poster_pages=(2, 1),
+                generate_color_masks=True,
+                max_color_masks=2,
+            )
+
+            workbook = load_workbook(output_path)
+            reference = workbook["Reference"]
+            template = workbook["Template"]
+            first_mask = workbook["Mask 001"]
+
+            self.assertEqual(
+                workbook.sheetnames,
+                ["Reference", "Template", "Color Index", "Mask 001", "Mask 002"],
+            )
+            self.assertEqual(reference.page_setup.fitToWidth, 2)
+            self.assertEqual(template.page_setup.fitToHeight, 1)
+            self.assertEqual(len(template.col_breaks.brk), 1)
+            self.assertEqual(len(template.row_breaks.brk), 0)
+            self.assertEqual(first_mask.sheet_view.showGridLines, False)
+            self.assertEqual(first_mask.print_options.gridLines, False)
+            filled_cells = sum(
+                cell.fill.fill_type == "solid"
+                for row in first_mask.iter_rows()
+                for cell in row
+            )
+            self.assertEqual(filled_cells, 4)
+
     def test_rejects_invalid_size_options(self):
         with self.assertRaises(ValueError):
             image_to_excel("image.png", "output.xlsx", max_size=0)
@@ -160,6 +206,12 @@ class ConverterTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             image_to_excel("image.png", "output.xlsx", color_count=1)
+
+        with self.assertRaises(ValueError):
+            image_to_excel("image.png", "output.xlsx", poster_pages=(0, 1))
+
+        with self.assertRaises(ValueError):
+            image_to_excel("image.png", "output.xlsx", max_color_masks=0)
 
 
 if __name__ == "__main__":

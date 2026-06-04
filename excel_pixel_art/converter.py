@@ -6,6 +6,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.worksheet.pagebreak import Break
 from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image, ImageOps
 
@@ -23,6 +24,10 @@ def image_to_excel(
     orientation: str = "auto",
     fit: str = "contain",
     background_color: str = "FFFFFF",
+    print_mode: bool = False,
+    poster_pages: tuple[int, int] = (1, 1),
+    generate_color_masks: bool = False,
+    max_color_masks: int | None = None,
 ) -> Path:
     """Convert an image into an Excel workbook with one colored cell per pixel."""
     image_path = Path(image_path)
@@ -38,6 +43,7 @@ def image_to_excel(
         raise ValueError("cell_size must be greater than 0")
     if color_count < 2 or color_count > 256:
         raise ValueError("color_count must be between 2 and 256")
+    _validate_print_options(poster_pages, max_color_masks)
     if resolution is not None:
         _validate_resolution(resolution)
     if orientation not in ORIENTATIONS:
@@ -84,13 +90,32 @@ def image_to_excel(
     reference_sheet.title = "Reference"
     _write_reference_sheet(reference_sheet, pixels, width, height, cell_size)
     _configure_page(reference_sheet, canvas_preset, orientation, image.size)
+    if print_mode:
+        _configure_print_mode(reference_sheet, width, height, poster_pages)
 
     template_sheet = workbook.create_sheet("Template")
     _write_template_sheet(template_sheet, pixels, palette, width, height, cell_size)
     _configure_page(template_sheet, canvas_preset, orientation, image.size)
+    if print_mode:
+        _configure_print_mode(template_sheet, width, height, poster_pages)
 
     index_sheet = workbook.create_sheet("Color Index")
     _write_color_index_sheet(index_sheet, palette, color_counts)
+
+    if print_mode and generate_color_masks:
+        _write_color_mask_sheets(
+            workbook=workbook,
+            pixels=pixels,
+            palette=palette,
+            width=width,
+            height=height,
+            cell_size=cell_size,
+            canvas_preset=canvas_preset,
+            orientation=orientation,
+            image_size=image.size,
+            poster_pages=poster_pages,
+            max_color_masks=max_color_masks,
+        )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_path)
@@ -180,6 +205,44 @@ def _write_color_index_sheet(sheet: Worksheet, palette: dict[str, int], color_co
         sheet.cell(row=row, column=4).value = color_counts[color]
 
 
+def _write_color_mask_sheets(
+    workbook: Workbook,
+    pixels,
+    palette: dict[str, int],
+    width: int,
+    height: int,
+    cell_size: float,
+    canvas_preset: CanvasPreset | None,
+    orientation: str,
+    image_size: tuple[int, int],
+    poster_pages: tuple[int, int],
+    max_color_masks: int | None,
+) -> None:
+    colors = sorted(palette, key=palette.get)
+    if max_color_masks is not None:
+        colors = colors[:max_color_masks]
+
+    mask_fill = PatternFill(fill_type="solid", fgColor="000000")
+    for color in colors:
+        number = palette[color]
+        sheet = workbook.create_sheet(f"Mask {number:03d}")
+        sheet.sheet_view.showGridLines = False
+        sheet.print_options.gridLines = False
+        sheet.sheet_properties.tabColor = color
+        sheet.oddHeader.center.text = f"Color {number} - #{color}"
+        _set_pixel_dimensions(sheet, width, height, cell_size)
+
+        for row in range(height):
+            for column in range(width):
+                red, green, blue, alpha = pixels[column, row]
+                pixel_color = f"{red:02X}{green:02X}{blue:02X}"
+                if alpha > 0 and pixel_color == color:
+                    sheet.cell(row=row + 1, column=column + 1).fill = mask_fill
+
+        _configure_page(sheet, canvas_preset, orientation, image_size)
+        _configure_print_mode(sheet, width, height, poster_pages)
+
+
 def _set_pixel_dimensions(sheet: Worksheet, width: int, height: int, cell_size: float) -> None:
     for row in range(height):
         sheet.row_dimensions[row + 1].height = cell_size * 6
@@ -204,6 +267,16 @@ def _validate_resolution(resolution: tuple[int, int]) -> None:
         raise ValueError("resolution width and height must be at least 1")
     if width > 2000 or height > 2000:
         raise ValueError("resolution width and height must be at most 2000")
+
+
+def _validate_print_options(poster_pages: tuple[int, int], max_color_masks: int | None) -> None:
+    pages_wide, pages_tall = poster_pages
+    if pages_wide < 1 or pages_tall < 1:
+        raise ValueError("poster page dimensions must be at least 1")
+    if pages_wide > 20 or pages_tall > 20:
+        raise ValueError("poster page dimensions must be at most 20")
+    if max_color_masks is not None and (max_color_masks < 1 or max_color_masks > 256):
+        raise ValueError("max_color_masks must be between 1 and 256")
 
 
 def _canvas_dimensions(
@@ -293,6 +366,26 @@ def _configure_page(
     if orientation == "auto":
         orientation = "landscape" if image_size[0] >= image_size[1] else "portrait"
     sheet.page_setup.orientation = orientation
+
+
+def _configure_print_mode(
+    sheet: Worksheet,
+    width: int,
+    height: int,
+    poster_pages: tuple[int, int],
+) -> None:
+    pages_wide, pages_tall = poster_pages
+    sheet.print_area = f"A1:{_column_name(width)}{height}"
+    sheet.page_setup.fitToWidth = pages_wide
+    sheet.page_setup.fitToHeight = pages_tall
+    sheet.sheet_properties.pageSetUpPr.fitToPage = True
+
+    for page in range(1, pages_wide):
+        break_column = round(width * page / pages_wide)
+        sheet.col_breaks.append(Break(id=break_column))
+    for page in range(1, pages_tall):
+        break_row = round(height * page / pages_tall)
+        sheet.row_breaks.append(Break(id=break_row))
 
 
 def _normalize_hex_color(color: str) -> str:
