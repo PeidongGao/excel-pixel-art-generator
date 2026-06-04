@@ -5,7 +5,13 @@ from pathlib import Path
 from openpyxl import load_workbook
 from PIL import Image
 
-from excel_pixel_art.physical import image_to_physical_excel, main, parse_resolution
+from excel_pixel_art.physical import (
+    image_to_physical_excel,
+    image_to_physical_masks,
+    image_to_physical_pdf,
+    main,
+    parse_resolution,
+)
 
 
 class PhysicalLayerTest(unittest.TestCase):
@@ -81,6 +87,34 @@ class PhysicalLayerTest(unittest.TestCase):
             self.assertEqual((template.max_column, template.max_row), (128, 128))
             self.assertEqual(template.page_setup.paperSize, 9)
             self.assertLessEqual(workbook["Material Palette"].max_row - 1, 48)
+
+    def test_fixed_material_palettes_include_names_and_references(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            image_path = directory_path / "source.png"
+            output_path = directory_path / "lego.xlsx"
+            Image.new("RGBA", (4, 2), (200, 20, 20, 255)).save(image_path)
+
+            image_to_physical_excel(image_path, output_path, resolution=(4, 2), palette_mode="lego")
+
+            palette = load_workbook(output_path)["Material Palette"]
+            self.assertEqual(palette["E1"].value, "Material")
+            self.assertTrue(palette["E2"].value)
+            self.assertEqual(palette["G2"].value, "https://www.bricklink.com/catalogColors.asp")
+
+    def test_printable_pdf_and_mask_zip_outputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            image_path = directory_path / "source.png"
+            pdf_path = directory_path / "printable.pdf"
+            masks_path = directory_path / "masks.zip"
+            Image.new("RGBA", (4, 2), (200, 20, 20, 255)).save(image_path)
+
+            image_to_physical_pdf(image_path, pdf_path, resolution=(4, 2), poster_pages=(2, 1))
+            image_to_physical_masks(image_path, masks_path, resolution=(4, 2), palette_mode="liquitex_basics_24")
+
+            self.assertTrue(pdf_path.read_bytes().startswith(b"%PDF"))
+            self.assertTrue(masks_path.read_bytes().startswith(b"PK"))
 
     def test_rejects_invalid_physical_options(self):
         with self.assertRaises(ValueError):

@@ -13,7 +13,7 @@ if __package__ in {None, ""}:
 
 from excel_pixel_art.canvas import CANVAS_PRESETS, FIT_MODES, ORIENTATIONS
 from excel_pixel_art.converter import image_to_excel
-from excel_pixel_art.physical import image_to_physical_excel
+from excel_pixel_art.physical import image_to_physical_excel, image_to_physical_masks, image_to_physical_pdf
 
 
 def main() -> None:
@@ -159,7 +159,7 @@ def _physical_layer(uploaded_file) -> None:
     st.markdown("**Print Mode**")
     st.caption("Independent print canvas, material palette, poster split, masks, and workbook output.")
 
-    canvas_column, detail_column, production_column = st.columns([1, 1, 1])
+    canvas_column, detail_column = st.columns([1, 1])
     canvas_keys = [""] + sorted(CANVAS_PRESETS)
 
     with canvas_column:
@@ -242,52 +242,65 @@ def _physical_layer(uploaded_file) -> None:
             key="physical_cell_size",
         )
 
-    with production_column:
-        st.subheader("Production")
-        split_poster = st.checkbox("Poster Split", value=True, key="physical_poster_split")
-        if split_poster:
-            poster_pages_wide = st.number_input(
-                "Pages wide",
-                min_value=1,
-                max_value=20,
-                value=2,
-                step=1,
-                key="physical_pages_wide",
-            )
-            poster_pages_tall = st.number_input(
-                "Pages tall",
-                min_value=1,
-                max_value=20,
-                value=2,
-                step=1,
-                key="physical_pages_tall",
-            )
-        else:
+    palette_column, poster_column, masks_column, output_column = st.columns([1, 1, 1, 1])
+    with palette_column:
+        st.subheader("Material Palette")
+        palette_label = st.radio(
+            "Palette",
+            options=["Adaptive", "LEGO", "Liquitex Basics 24"],
+            label_visibility="collapsed",
+            key="physical_palette_mode",
+        )
+        palette_mode = {
+            "Adaptive": "adaptive",
+            "LEGO": "lego",
+            "Liquitex Basics 24": "liquitex_basics_24",
+        }[palette_label]
+        if palette_mode != "adaptive":
+            material_color_count = 40 if palette_mode == "lego" else 24
+
+    with poster_column:
+        st.subheader("Poster Split")
+        split_poster = st.checkbox("Enable", value=False, key="physical_poster_split")
+        poster_pages_wide = st.number_input(
+            "Pages Wide", min_value=1, max_value=20, value=2, step=1,
+            disabled=not split_poster, key="physical_pages_wide",
+        )
+        poster_pages_tall = st.number_input(
+            "Pages Tall", min_value=1, max_value=20, value=2, step=1,
+            disabled=not split_poster, key="physical_pages_tall",
+        )
+        if not split_poster:
             poster_pages_wide = 1
             poster_pages_tall = 1
 
-        generate_color_masks = st.checkbox("Color Masks", value=False, key="physical_masks")
-        if generate_color_masks:
-            max_color_masks = st.number_input(
-                "Masks to generate",
-                min_value=1,
-                max_value=int(material_color_count),
-                value=min(int(material_color_count), 16),
-                step=1,
-                key="physical_mask_count",
-            )
-        else:
-            max_color_masks = None
-        st.checkbox("Material Palette", value=True, disabled=True, key="physical_palette")
+    with masks_column:
+        st.subheader("Color Masks")
+        generate_color_masks = st.checkbox("Generate Color Masks", value=False, key="physical_masks")
+        max_color_masks = None
+
+    with output_column:
+        st.subheader("Output")
+        output_workbook = st.checkbox("Workbook", value=True, key="physical_output_workbook")
+        output_pdf = st.checkbox("Printable PDF", value=True, key="physical_output_pdf")
+        output_masks = st.checkbox("Masks", value=True, disabled=not generate_color_masks, key="physical_output_masks")
+
+    if palette_mode == "lego":
+        st.caption("LEGO official color reference: https://www.bricklink.com/catalogColors.asp")
+    elif palette_mode == "liquitex_basics_24":
+        st.caption(
+            "Liquitex official product: https://www.liquitex.com | "
+            "24 Color Set: https://www.michaels.com/product/liquitex-basics-acrylic-24-color-paint-set-10268659"
+        )
 
     if st.button(
-        "Generate Physical workbook",
+        "Generate Physical outputs",
         type="primary",
-        disabled=uploaded_file is None,
+        disabled=uploaded_file is None or not (output_workbook or output_pdf or (output_masks and generate_color_masks)),
         key="generate_physical",
     ):
-        with st.spinner("Generating Physical workbook..."):
-            workbook_bytes, download_name = _build_physical_workbook(
+        with st.spinner("Generating Physical outputs..."):
+            outputs = _build_physical_outputs(
                 uploaded_file=uploaded_file,
                 max_size=int(max_size),
                 cell_size=float(cell_size),
@@ -300,14 +313,19 @@ def _physical_layer(uploaded_file) -> None:
                 poster_pages=(int(poster_pages_wide), int(poster_pages_tall)),
                 generate_color_masks=generate_color_masks,
                 max_color_masks=int(max_color_masks) if max_color_masks is not None else None,
+                palette_mode=palette_mode,
+                output_workbook=output_workbook,
+                output_pdf=output_pdf,
+                output_masks=output_masks and generate_color_masks,
             )
-        st.download_button(
-            "Download Physical workbook",
-            data=workbook_bytes,
-            file_name=download_name,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="download_physical",
-        )
+        for key, (content, filename, mime) in outputs.items():
+            st.download_button(
+                f"Download {key}",
+                data=content,
+                file_name=filename,
+                mime=mime,
+                key=f"download_physical_{key}",
+            )
 
 
 def _build_digital_workbook(
@@ -349,6 +367,7 @@ def _build_physical_workbook(
     poster_pages: tuple[int, int],
     generate_color_masks: bool,
     max_color_masks: int | None,
+    palette_mode: str = "adaptive",
 ) -> tuple[bytes, str]:
     return _build_workbook(
         uploaded_file=uploaded_file,
@@ -365,7 +384,39 @@ def _build_physical_workbook(
         poster_pages=poster_pages,
         generate_color_masks=generate_color_masks,
         max_color_masks=max_color_masks,
+        palette_mode=palette_mode,
     )
+
+
+def _build_physical_outputs(
+    uploaded_file,
+    output_workbook: bool,
+    output_pdf: bool,
+    output_masks: bool,
+    **options,
+) -> dict[str, tuple[bytes, str, str]]:
+    suffix = Path(uploaded_file.name).suffix or ".image"
+    stem = _safe_stem(uploaded_file.name)
+    outputs: dict[str, tuple[bytes, str, str]] = {}
+    with tempfile.TemporaryDirectory() as directory:
+        directory_path = Path(directory)
+        image_path = directory_path / f"upload{suffix}"
+        image_path.write_bytes(uploaded_file.getvalue())
+        if output_workbook:
+            path = image_to_physical_excel(image_path, directory_path / f"{stem}_physical.xlsx", **options)
+            outputs["Workbook"] = (
+                path.read_bytes(), path.name,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        if output_pdf:
+            pdf_options = {key: value for key, value in options.items() if key not in {"generate_color_masks", "max_color_masks"}}
+            path = image_to_physical_pdf(image_path, directory_path / f"{stem}_printable.pdf", **pdf_options)
+            outputs["Printable PDF"] = (path.read_bytes(), path.name, "application/pdf")
+        if output_masks:
+            mask_options = {key: value for key, value in options.items() if key not in {"generate_color_masks"}}
+            path = image_to_physical_masks(image_path, directory_path / f"{stem}_masks.zip", **mask_options)
+            outputs["Masks"] = (path.read_bytes(), path.name, "application/zip")
+    return outputs
 
 
 def _build_workbook(uploaded_file, output_suffix: str, converter, **options) -> tuple[bytes, str]:

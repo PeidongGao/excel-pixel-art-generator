@@ -5,7 +5,11 @@ from openpyxl import load_workbook
 from PIL import Image
 from streamlit.testing.v1 import AppTest
 
-from excel_pixel_art.streamlit_app import _build_digital_workbook, _build_physical_workbook
+from excel_pixel_art.streamlit_app import (
+    _build_digital_workbook,
+    _build_physical_outputs,
+    _build_physical_workbook,
+)
 
 
 class UploadedImage:
@@ -29,7 +33,7 @@ class StreamlitAppTest(unittest.TestCase):
         self.assertEqual([header.value for header in app.header], ["Digital Layer", "Physical Layer"])
         self.assertEqual([button.label for button in app.button], [
             "Generate Digital workbook",
-            "Generate Physical workbook",
+            "Generate Physical outputs",
         ])
 
         number_inputs = {number_input.label: number_input.value for number_input in app.number_input}
@@ -86,6 +90,30 @@ class StreamlitAppTest(unittest.TestCase):
         )
         self.assertEqual((digital["Template"].max_column, digital["Template"].max_row), (8, 6))
         self.assertEqual((physical["Print Template"].max_column, physical["Print Template"].max_row), (5, 7))
+
+    def test_physical_output_builder_returns_selected_independent_files(self):
+        outputs = _build_physical_outputs(
+            uploaded_file=UploadedImage(),
+            output_workbook=True,
+            output_pdf=True,
+            output_masks=True,
+            max_size=128,
+            cell_size=3.0,
+            material_color_count=24,
+            palette_mode="liquitex_basics_24",
+            canvas_size="a4",
+            resolution=(8, 8),
+            orientation="portrait",
+            fit="contain",
+            background_color="FFFFFF",
+            poster_pages=(2, 2),
+            generate_color_masks=True,
+            max_color_masks=2,
+        )
+
+        self.assertEqual(set(outputs), {"Workbook", "Printable PDF", "Masks"})
+        self.assertTrue(outputs["Printable PDF"][0].startswith(b"%PDF"))
+        self.assertTrue(outputs["Masks"][0].startswith(b"PK"))
 
 
 if __name__ == "__main__":

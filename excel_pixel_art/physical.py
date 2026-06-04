@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import zipfile
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -12,6 +13,50 @@ from openpyxl.worksheet.worksheet import Worksheet
 from PIL import Image, ImageOps
 
 from .canvas import CANVAS_PRESETS, FIT_MODES, ORIENTATIONS, CanvasPreset
+
+MATERIAL_PALETTE_REFERENCES = {
+    "adaptive": None,
+    "lego": "https://www.bricklink.com/catalogColors.asp",
+    "liquitex_basics_24": "https://www.liquitex.com",
+}
+
+# Screen approximations for matching images to purchasable physical materials.
+LEGO_COLORS = [
+    ("White", "FFFFFF"), ("Light Bluish Gray", "A0A5A9"), ("Dark Bluish Gray", "6C6E68"),
+    ("Black", "05131D"), ("Dark Red", "720E0F"), ("Red", "C91A09"),
+    ("Coral", "FF698F"), ("Dark Brown", "352100"), ("Reddish Brown", "582A12"),
+    ("Dark Tan", "958A73"), ("Tan", "E4CD9E"), ("Light Nougat", "F6D7B3"),
+    ("Medium Nougat", "AA7D55"), ("Dark Orange", "A95500"), ("Orange", "FE8A18"),
+    ("Bright Light Orange", "F8BB3D"), ("Yellow", "F2CD37"), ("Bright Light Yellow", "FFF03A"),
+    ("Lime", "BBE90B"), ("Olive Green", "9B9A5A"), ("Dark Green", "184632"),
+    ("Green", "237841"), ("Bright Green", "4B9F4A"), ("Sand Green", "A0BCAC"),
+    ("Dark Turquoise", "008F9B"), ("Aqua", "B3D7D1"), ("Dark Blue", "0A3463"),
+    ("Blue", "0055BF"), ("Dark Azure", "078BC9"), ("Medium Azure", "36AEBF"),
+    ("Medium Blue", "5A93DB"), ("Bright Light Blue", "9FC3E9"), ("Sand Blue", "6074A1"),
+    ("Dark Purple", "3F3691"), ("Purple", "81007B"), ("Medium Lavender", "AC78BA"),
+    ("Lavender", "E1D5ED"), ("Magenta", "923978"), ("Dark Pink", "C870A0"),
+    ("Bright Pink", "E4ADC8"),
+]
+
+LIQUITEX_BASICS_24 = [
+    ("Titanium White", "F8F7F2"), ("Cadmium Yellow Light Hue", "F6E20B"),
+    ("Primary Yellow", "F3C600"), ("Yellow Oxide", "C99834"),
+    ("Cadmium Orange Hue", "E86B24"), ("Cadmium Red Light Hue", "D9362B"),
+    ("Primary Red", "B8203A"), ("Alizarin Crimson Hue Permanent", "7A263A"),
+    ("Light Portrait Pink", "E9A7A4"), ("Dioxazine Purple", "443064"),
+    ("Primary Blue", "1E4A91"), ("Ultramarine Blue", "263B82"),
+    ("Cerulean Blue Hue", "3C86B4"), ("Light Blue Permanent", "79B7D7"),
+    ("Phthalocyanine Green", "146A55"), ("Brilliant Yellow Green", "79A83B"),
+    ("Hooker's Green Hue Permanent", "315B3C"), ("Burnt Sienna", "8B4B32"),
+    ("Burnt Umber", "5B4438"), ("Raw Sienna", "B78345"),
+    ("Raw Umber", "665846"), ("Mars Black", "202020"),
+    ("Neutral Gray 5", "777777"), ("Gold", "B99545"),
+]
+
+MATERIAL_PALETTES = {
+    "lego": LEGO_COLORS,
+    "liquitex_basics_24": LIQUITEX_BASICS_24,
+}
 
 
 def image_to_physical_excel(
@@ -28,6 +73,7 @@ def image_to_physical_excel(
     poster_pages: tuple[int, int] = (2, 2),
     generate_color_masks: bool = False,
     max_color_masks: int | None = None,
+    palette_mode: str = "adaptive",
 ) -> Path:
     """Generate a standalone Physical Layer print workbook."""
     image_path = Path(image_path)
@@ -41,6 +87,8 @@ def image_to_physical_excel(
         raise ValueError("max_size must be at least 1")
     if cell_size <= 0:
         raise ValueError("cell_size must be greater than 0")
+    if palette_mode not in {"adaptive", *MATERIAL_PALETTES}:
+        raise ValueError("palette_mode must be adaptive, lego, or liquitex_basics_24")
     if material_color_count < 2 or material_color_count > 256:
         raise ValueError("material_color_count must be between 2 and 256")
     if resolution is not None:
@@ -53,17 +101,10 @@ def image_to_physical_excel(
     if not image_path.exists():
         raise FileNotFoundError(f"Input image not found: {image_path}")
 
-    source_image = Image.open(image_path).convert("RGBA")
-    physical_image = _prepare_canvas_image(
-        source_image,
-        canvas_preset=canvas_preset,
-        max_size=max_size,
-        resolution=resolution,
-        orientation=orientation,
-        fit=fit,
-        background_color=background_color,
+    physical_image, material_names = _prepare_physical_image(
+        image_path, canvas_preset, max_size, resolution, orientation, fit,
+        background_color, material_color_count, palette_mode,
     )
-    physical_image = _reduce_colors(physical_image, material_color_count)
     width, height = physical_image.size
     pixels = physical_image.load()
     palette, color_counts = _build_palette(pixels, width, height)
@@ -81,7 +122,13 @@ def image_to_physical_excel(
     _configure_print_mode(template_sheet, width, height, poster_pages)
 
     material_sheet = workbook.create_sheet("Material Palette")
-    _write_color_index_sheet(material_sheet, palette, color_counts)
+    _write_color_index_sheet(
+        material_sheet,
+        palette,
+        color_counts,
+        material_names=material_names,
+        reference=MATERIAL_PALETTE_REFERENCES[palette_mode],
+    )
 
     if generate_color_masks:
         _write_color_mask_sheets(
@@ -101,6 +148,122 @@ def image_to_physical_excel(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_path)
     return output_path
+
+
+def image_to_physical_pdf(
+    image_path: str | Path,
+    output_path: str | Path,
+    **options,
+) -> Path:
+    """Generate a standalone tiled printable PDF reference."""
+    image_path = Path(image_path)
+    output_path = Path(output_path)
+    poster_pages = options.pop("poster_pages", (2, 2))
+    image, _ = _prepare_physical_from_options(image_path, options)
+    pages = _split_image_pages(image.convert("RGB"), poster_pages)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    pages[0].save(output_path, "PDF", resolution=300, save_all=True, append_images=pages[1:])
+    return output_path
+
+
+def image_to_physical_masks(
+    image_path: str | Path,
+    output_path: str | Path,
+    max_color_masks: int | None = None,
+    **options,
+) -> Path:
+    """Generate a ZIP containing numbered black-and-white material masks."""
+    image_path = Path(image_path)
+    output_path = Path(output_path)
+    image, names = _prepare_physical_from_options(image_path, options)
+    pixels = image.load()
+    width, height = image.size
+    palette, _ = _build_palette(pixels, width, height)
+    colors = sorted(palette, key=palette.get)
+    if max_color_masks is not None:
+        colors = colors[:max_color_masks]
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for color in colors:
+            number = palette[color]
+            mask = Image.new("1", image.size, 1)
+            mask_pixels = mask.load()
+            for row in range(height):
+                for column in range(width):
+                    red, green, blue, alpha = pixels[column, row]
+                    if alpha > 0 and f"{red:02X}{green:02X}{blue:02X}" == color:
+                        mask_pixels[column, row] = 0
+            name = names.get(color, color).replace("/", "-")
+            temporary = output_path.parent / f"{number:03d}_{name}.png"
+            mask.resize((width * 8, height * 8), Image.Resampling.NEAREST).save(temporary)
+            archive.write(temporary, temporary.name)
+            temporary.unlink()
+    return output_path
+
+
+def _prepare_physical_from_options(image_path: Path, options: dict) -> tuple[Image.Image, dict[str, str]]:
+    canvas_preset = _get_canvas_preset(options.get("canvas_size", "a4"))
+    return _prepare_physical_image(
+        image_path,
+        canvas_preset,
+        options.get("max_size", 128),
+        options.get("resolution", (128, 128)),
+        options.get("orientation", "auto"),
+        options.get("fit", "contain"),
+        _normalize_hex_color(options.get("background_color", "FFFFFF")),
+        options.get("material_color_count", 48),
+        options.get("palette_mode", "adaptive"),
+    )
+
+
+def _prepare_physical_image(
+    image_path: Path,
+    canvas_preset: CanvasPreset | None,
+    max_size: int,
+    resolution: tuple[int, int] | None,
+    orientation: str,
+    fit: str,
+    background_color: str,
+    material_color_count: int,
+    palette_mode: str,
+) -> tuple[Image.Image, dict[str, str]]:
+    source_image = Image.open(image_path).convert("RGBA")
+    image = _prepare_canvas_image(
+        source_image, canvas_preset, max_size, resolution, orientation, fit, background_color,
+    )
+    if palette_mode == "adaptive":
+        return _reduce_colors(image, material_color_count), {}
+    return _match_fixed_palette(image, MATERIAL_PALETTES[palette_mode])
+
+
+def _match_fixed_palette(image: Image.Image, materials: list[tuple[str, str]]) -> tuple[Image.Image, dict[str, str]]:
+    output = Image.new("RGBA", image.size)
+    source = image.load()
+    target = output.load()
+    colors = [(name, value, tuple(bytes.fromhex(value))) for name, value in materials]
+    for row in range(image.height):
+        for column in range(image.width):
+            red, green, blue, alpha = source[column, row]
+            name, value, rgb = min(
+                colors,
+                key=lambda item: (red - item[2][0]) ** 2 + (green - item[2][1]) ** 2 + (blue - item[2][2]) ** 2,
+            )
+            target[column, row] = (*rgb, alpha)
+    return output, {value: name for name, value in materials}
+
+
+def _split_image_pages(image: Image.Image, poster_pages: tuple[int, int]) -> list[Image.Image]:
+    pages_wide, pages_tall = poster_pages
+    pages = []
+    for page_y in range(pages_tall):
+        for page_x in range(pages_wide):
+            left = round(image.width * page_x / pages_wide)
+            right = round(image.width * (page_x + 1) / pages_wide)
+            top = round(image.height * page_y / pages_tall)
+            bottom = round(image.height * (page_y + 1) / pages_tall)
+            pages.append(image.crop((left, top, right, bottom)).resize((1800, 2400), Image.Resampling.NEAREST))
+    return pages
 
 
 def _write_color_mask_sheets(
@@ -215,14 +378,22 @@ def _write_template_sheet(
                 cell.value = palette[f"{red:02X}{green:02X}{blue:02X}"]
 
 
-def _write_color_index_sheet(sheet: Worksheet, palette: dict[str, int], color_counts: dict[str, int]) -> None:
+def _write_color_index_sheet(
+    sheet: Worksheet,
+    palette: dict[str, int],
+    color_counts: dict[str, int],
+    material_names: dict[str, str] | None = None,
+    reference: str | None = None,
+) -> None:
+    material_names = material_names or {}
     sheet.freeze_panes = "A2"
     sheet.column_dimensions["A"].width = 10
     sheet.column_dimensions["B"].width = 14
     sheet.column_dimensions["C"].width = 12
     sheet.column_dimensions["D"].width = 14
+    sheet.column_dimensions["E"].width = 28
 
-    for column, header in enumerate(["Number", "Hex Code", "Swatch", "Cells"], start=1):
+    for column, header in enumerate(["Number", "Hex Code", "Swatch", "Cells", "Material"], start=1):
         cell = sheet.cell(row=1, column=column)
         cell.value = header
         cell.font = Font(bold=True)
@@ -234,6 +405,10 @@ def _write_color_index_sheet(sheet: Worksheet, palette: dict[str, int], color_co
         sheet.cell(row=row, column=2).value = f"#{color}"
         sheet.cell(row=row, column=3).fill = PatternFill(fill_type="solid", fgColor=color)
         sheet.cell(row=row, column=4).value = color_counts[color]
+        sheet.cell(row=row, column=5).value = material_names.get(color, "Adaptive Color")
+    if reference:
+        sheet["G1"] = "Reference"
+        sheet["G2"] = reference
 
 
 def _set_pixel_dimensions(sheet: Worksheet, width: int, height: int, cell_size: float) -> None:
@@ -399,6 +574,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-size", type=int, default=128)
     parser.add_argument("--cell-size", type=float, default=3.0)
     parser.add_argument("--material-colors", type=int, default=48)
+    parser.add_argument("--palette", choices=["adaptive", "lego", "liquitex_basics_24"], default="adaptive")
     parser.add_argument("--canvas-size", choices=sorted(CANVAS_PRESETS), default="a4")
     parser.add_argument("--resolution", type=parse_resolution, default=(128, 128))
     parser.add_argument("--orientation", choices=sorted(ORIENTATIONS), default="auto")
@@ -421,6 +597,7 @@ def main(argv: list[str] | None = None) -> int:
             max_size=args.max_size,
             cell_size=args.cell_size,
             material_color_count=args.material_colors,
+            palette_mode=args.palette,
             canvas_size=args.canvas_size,
             resolution=args.resolution,
             orientation=args.orientation,
