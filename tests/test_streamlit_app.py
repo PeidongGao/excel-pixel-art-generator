@@ -50,6 +50,7 @@ class StreamlitAppTest(unittest.TestCase):
         self.assertEqual(number_inputs["Physical height cells"], 32)
         self.assertEqual(sliders["Material Palette colors"], 24)
         self.assertIn("Status: **Valid**", app.success[0].value)
+        self.assertTrue(any("Print Mode and Material Palette disclaimer" in item.value for item in app.warning))
 
     def test_invalid_poster_split_displays_divisibility_reason(self):
         app = AppTest.from_file("excel_pixel_art/streamlit_app.py").run(timeout=20)
@@ -69,9 +70,9 @@ class StreamlitAppTest(unittest.TestCase):
         app.checkbox[2].set_value(True)
         app.run(timeout=20)
 
-        self.assertEqual(len(app.warning), 1)
-        self.assertIn("Status: Pending", app.warning[0].value)
-        self.assertIn("Enable exact physical resolution", app.warning[0].value)
+        warning_text = "\n".join(item.value for item in app.warning)
+        self.assertIn("Status: Pending", warning_text)
+        self.assertIn("Enable exact physical resolution", warning_text)
 
     def test_digital_and_physical_builders_create_separate_outputs(self):
         uploaded_file = UploadedImage()

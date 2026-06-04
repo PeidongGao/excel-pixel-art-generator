@@ -66,6 +66,14 @@ Printable poster PDFs remain sharp when zoomed or printed because they do not em
 
 LEGO and Liquitex colors are screen approximations used for matching. Physical color appearance varies by lighting, material, paint opacity, surface, and drying.
 
+### Print Mode and Material Palette Disclaimer
+
+- Brand and product names are provided only as unaffiliated references. WillGaoLab and William (Peidong) Gao are not sponsored, endorsed, authorized by, or associated with any brand, manufacturer, retailer, or product listed in Print Mode or Material Palette.
+- Material palette matches, color names, screen colors, quantities, poster layouts, masks, and other generated recommendations are estimates and may be inaccurate, incomplete, unavailable, or unsuitable for a user's intended project.
+- Users must independently verify colors, dimensions, quantities, availability, compatibility, safety, costs, licensing, and all other requirements before purchasing materials, printing, assembling, or producing an output.
+- All purchasing, printing, material selection, assembly, and production decisions are made entirely at the user's own risk and judgment.
+- To the maximum extent permitted by law, WillGaoLab and William (Peidong) Gao accept no responsibility or liability for purchases, expenses, losses, waste, incorrect colors, inaccurate quantities, print errors, failed projects, injuries, damages, or any other consequences arising from Print Mode, Material Palette, or generated outputs.
+
 Material references:
 
 - LEGO official color reference: [BrickLink Color Guide](https://www.bricklink.com/catalogColors.asp)
