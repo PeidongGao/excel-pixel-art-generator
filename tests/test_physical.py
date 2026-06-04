@@ -6,7 +6,6 @@ from openpyxl import load_workbook
 from PIL import Image
 
 from excel_pixel_art.physical import (
-    _printable_pages,
     image_to_physical_excel,
     image_to_physical_masks,
     image_to_physical_pdf,
@@ -48,7 +47,7 @@ class PhysicalLayerTest(unittest.TestCase):
             )
 
             workbook = load_workbook(output_path)
-            template = workbook["Master Layout"]
+            template = workbook["Print Template"]
             palette = workbook["Material Palette"]
             first_mask = workbook["Material Mask 001"]
 
@@ -56,9 +55,7 @@ class PhysicalLayerTest(unittest.TestCase):
                 workbook.sheetnames,
                 [
                     "Print Reference",
-                    "Master Layout",
-                    "Tile_A1",
-                    "Tile_A2",
+                    "Print Template",
                     "Material Palette",
                     "Material Mask 001",
                     "Material Mask 002",
@@ -67,11 +64,8 @@ class PhysicalLayerTest(unittest.TestCase):
             self.assertEqual((template.max_column, template.max_row), (3, 2))
             self.assertEqual(template.page_setup.paperSize, 1)
             self.assertEqual(template.page_setup.orientation, "portrait")
-            self.assertEqual(template.page_setup.fitToWidth, 1)
-            self.assertEqual(len(template.col_breaks.brk), 0)
-            self.assertEqual(workbook["Tile_A1"].page_setup.fitToWidth, 1)
-            self.assertEqual(first_mask.page_setup.fitToWidth, 1)
-            self.assertEqual(len(first_mask.col_breaks.brk), 0)
+            self.assertEqual(template.page_setup.fitToWidth, 2)
+            self.assertEqual(len(template.col_breaks.brk), 1)
             self.assertEqual(palette.max_row - 1, 2)
             self.assertEqual(first_mask.oddHeader.center.text, f"Color 1 - {palette['B2'].value}")
             self.assertGreater(
@@ -89,7 +83,7 @@ class PhysicalLayerTest(unittest.TestCase):
             image_to_physical_excel(image_path, output_path)
 
             workbook = load_workbook(output_path)
-            template = workbook["Master Layout"]
+            template = workbook["Print Template"]
             self.assertEqual((template.max_column, template.max_row), (128, 128))
             self.assertEqual(template.page_setup.paperSize, 9)
             self.assertLessEqual(workbook["Material Palette"].max_row - 1, 48)
@@ -138,13 +132,6 @@ class PhysicalLayerTest(unittest.TestCase):
 
             self.assertTrue(pdf_path.read_bytes().startswith(b"%PDF"))
             self.assertTrue(masks_path.read_bytes().startswith(b"PK"))
-            self.assertEqual(len(_printable_pages(Image.new("RGB", (4, 2)), (2, 1))), 3)
-
-            import zipfile
-
-            with zipfile.ZipFile(masks_path) as archive:
-                self.assertTrue(all(name.startswith("Color_") and name.endswith(".pdf") for name in archive.namelist()))
-                self.assertFalse(any("Tile_" in name for name in archive.namelist()))
 
     def test_rejects_invalid_physical_options(self):
         with self.assertRaises(ValueError):
