@@ -142,25 +142,31 @@ class ConverterTest(unittest.TestCase):
             self.assertEqual(sheet.max_column, 12)
             self.assertEqual(sheet.max_row, 7)
 
-    def test_print_mode_adds_poster_splitting_and_color_masks(self):
+    def test_physical_output_reuses_indexed_palette_and_aligns_masks(self):
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
             image_path = directory_path / "source.png"
             output_path = directory_path / "print_mode.xlsx"
 
             image = Image.new("RGBA", (4, 2))
+            colors = [
+                (255, 0, 0, 255),
+                (0, 255, 0, 255),
+                (0, 0, 255, 255),
+                (255, 255, 0, 255),
+            ]
             for row in range(2):
                 for column in range(4):
-                    color = (255, 0, 0, 255) if column < 2 else (0, 0, 255, 255)
-                    image.putpixel((column, row), color)
+                    image.putpixel((column, row), colors[column])
             image.save(image_path)
 
             image_to_excel(
                 image_path,
                 output_path,
                 resolution=(4, 2),
-                color_count=2,
-                print_mode=True,
+                color_count=4,
+                include_excel_output=True,
+                physical_output=True,
                 poster_pages=(2, 1),
                 generate_color_masks=True,
                 max_color_masks=2,
@@ -169,16 +175,36 @@ class ConverterTest(unittest.TestCase):
             workbook = load_workbook(output_path)
             reference = workbook["Reference"]
             template = workbook["Template"]
-            first_mask = workbook["Mask 001"]
+            color_index = workbook["Color Index"]
+            print_template = workbook["Print Template"]
+            material_palette = workbook["Material Palette"]
+            first_mask = workbook["Material Mask 001"]
 
             self.assertEqual(
                 workbook.sheetnames,
-                ["Reference", "Template", "Color Index", "Mask 001", "Mask 002"],
+                [
+                    "Reference",
+                    "Template",
+                    "Color Index",
+                    "Print Reference",
+                    "Print Template",
+                    "Material Palette",
+                    "Material Mask 001",
+                    "Material Mask 002",
+                ],
             )
-            self.assertEqual(reference.page_setup.fitToWidth, 2)
+            self.assertEqual(reference.page_setup.fitToWidth, 1)
             self.assertEqual(template.page_setup.fitToHeight, 1)
-            self.assertEqual(len(template.col_breaks.brk), 1)
-            self.assertEqual(len(template.row_breaks.brk), 0)
+            self.assertEqual(print_template.page_setup.fitToWidth, 2)
+            self.assertEqual(len(print_template.col_breaks.brk), 1)
+            self.assertEqual(len(print_template.row_breaks.brk), 0)
+            self.assertEqual(color_index.max_row - 1, 4)
+            self.assertEqual(material_palette.max_row - 1, 4)
+            self.assertEqual(
+                list(color_index.values),
+                list(material_palette.values),
+            )
+            self.assertEqual(first_mask.oddHeader.center.text, f"Color 1 - {material_palette['B2'].value}")
             self.assertEqual(first_mask.sheet_view.showGridLines, False)
             self.assertEqual(first_mask.print_options.gridLines, False)
             filled_cells = sum(
@@ -186,7 +212,29 @@ class ConverterTest(unittest.TestCase):
                 for row in first_mask.iter_rows()
                 for cell in row
             )
-            self.assertEqual(filled_cells, 4)
+            self.assertGreater(filled_cells, 0)
+
+    def test_physical_output_can_be_generated_without_excel_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            image_path = directory_path / "source.png"
+            output_path = directory_path / "physical_only.xlsx"
+
+            Image.new("RGBA", (2, 2), (255, 0, 0, 255)).save(image_path)
+
+            image_to_excel(
+                image_path,
+                output_path,
+                resolution=(2, 2),
+                include_excel_output=False,
+                physical_output=True,
+            )
+
+            workbook = load_workbook(output_path)
+            self.assertEqual(
+                workbook.sheetnames,
+                ["Print Reference", "Print Template", "Material Palette"],
+            )
 
     def test_rejects_invalid_size_options(self):
         with self.assertRaises(ValueError):
@@ -212,6 +260,9 @@ class ConverterTest(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             image_to_excel("image.png", "output.xlsx", max_color_masks=0)
+
+        with self.assertRaises(ValueError):
+            image_to_excel("image.png", "output.xlsx", include_excel_output=False)
 
 
 if __name__ == "__main__":

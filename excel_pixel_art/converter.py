@@ -24,7 +24,8 @@ def image_to_excel(
     orientation: str = "auto",
     fit: str = "contain",
     background_color: str = "FFFFFF",
-    print_mode: bool = False,
+    include_excel_output: bool = True,
+    physical_output: bool = False,
     poster_pages: tuple[int, int] = (1, 1),
     generate_color_masks: bool = False,
     max_color_masks: int | None = None,
@@ -43,6 +44,8 @@ def image_to_excel(
         raise ValueError("cell_size must be greater than 0")
     if color_count < 2 or color_count > 256:
         raise ValueError("color_count must be between 2 and 256")
+    if not include_excel_output and not physical_output:
+        raise ValueError("at least one output must be enabled")
     _validate_print_options(poster_pages, max_color_masks)
     if resolution is not None:
         _validate_resolution(resolution)
@@ -79,40 +82,52 @@ def image_to_excel(
             background_color=background_color,
         )
 
-    image = _reduce_colors(image, color_count)
-
     workbook = Workbook()
     width, height = canvas_width, canvas_height
-    pixels = image.load()
-    palette, color_counts = _build_palette(pixels, width, height)
+    indexed_image = _reduce_colors(image, color_count)
+    indexed_pixels = indexed_image.load()
+    indexed_palette, indexed_color_counts = _build_palette(indexed_pixels, width, height)
+    default_sheet = workbook.active
 
-    reference_sheet = workbook.active
-    reference_sheet.title = "Reference"
-    _write_reference_sheet(reference_sheet, pixels, width, height, cell_size)
-    _configure_page(reference_sheet, canvas_preset, orientation, image.size)
-    if print_mode:
-        _configure_print_mode(reference_sheet, width, height, poster_pages)
+    if include_excel_output:
+        default_sheet.title = "Reference"
+        _write_reference_sheet(default_sheet, indexed_pixels, width, height, cell_size)
+        _configure_page(default_sheet, canvas_preset, orientation, indexed_image.size)
 
-    template_sheet = workbook.create_sheet("Template")
-    _write_template_sheet(template_sheet, pixels, palette, width, height, cell_size)
-    _configure_page(template_sheet, canvas_preset, orientation, image.size)
-    if print_mode:
-        _configure_print_mode(template_sheet, width, height, poster_pages)
+        template_sheet = workbook.create_sheet("Template")
+        _write_template_sheet(template_sheet, indexed_pixels, indexed_palette, width, height, cell_size)
+        _configure_page(template_sheet, canvas_preset, orientation, indexed_image.size)
 
-    index_sheet = workbook.create_sheet("Color Index")
-    _write_color_index_sheet(index_sheet, palette, color_counts)
+        index_sheet = workbook.create_sheet("Color Index")
+        _write_color_index_sheet(index_sheet, indexed_palette, indexed_color_counts)
+    else:
+        workbook.remove(default_sheet)
 
-    if print_mode and generate_color_masks:
+    if physical_output:
+        physical_reference = workbook.create_sheet("Print Reference")
+        _write_reference_sheet(physical_reference, indexed_pixels, width, height, cell_size)
+        _configure_page(physical_reference, canvas_preset, orientation, indexed_image.size)
+        _configure_print_mode(physical_reference, width, height, poster_pages)
+
+        physical_template = workbook.create_sheet("Print Template")
+        _write_template_sheet(physical_template, indexed_pixels, indexed_palette, width, height, cell_size)
+        _configure_page(physical_template, canvas_preset, orientation, indexed_image.size)
+        _configure_print_mode(physical_template, width, height, poster_pages)
+
+        material_sheet = workbook.create_sheet("Material Palette")
+        _write_color_index_sheet(material_sheet, indexed_palette, indexed_color_counts)
+
+    if physical_output and generate_color_masks:
         _write_color_mask_sheets(
             workbook=workbook,
-            pixels=pixels,
-            palette=palette,
+            pixels=indexed_pixels,
+            palette=indexed_palette,
             width=width,
             height=height,
             cell_size=cell_size,
             canvas_preset=canvas_preset,
             orientation=orientation,
-            image_size=image.size,
+            image_size=indexed_image.size,
             poster_pages=poster_pages,
             max_color_masks=max_color_masks,
         )
@@ -225,7 +240,7 @@ def _write_color_mask_sheets(
     mask_fill = PatternFill(fill_type="solid", fgColor="000000")
     for color in colors:
         number = palette[color]
-        sheet = workbook.create_sheet(f"Mask {number:03d}")
+        sheet = workbook.create_sheet(f"Material Mask {number:03d}")
         sheet.sheet_view.showGridLines = False
         sheet.print_options.gridLines = False
         sheet.sheet_properties.tabColor = color

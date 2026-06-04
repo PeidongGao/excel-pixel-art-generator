@@ -35,10 +35,9 @@ def main() -> None:
         accept_multiple_files=False,
     )
 
-    left, right = st.columns([1, 1])
-
-    with left:
-        st.subheader("Canvas")
+    st.subheader("Canvas")
+    canvas_left, canvas_right = st.columns([1, 1])
+    with canvas_left:
         canvas_keys = [""] + sorted(CANVAS_PRESETS)
         canvas_size = st.selectbox(
             "Paper size",
@@ -47,32 +46,36 @@ def main() -> None:
             format_func=_canvas_label,
         )
         orientation = st.selectbox("Orientation", options=sorted(ORIENTATIONS), index=0)
+    with canvas_right:
         fit = st.selectbox("Image fit", options=sorted(FIT_MODES), index=0)
         background_color = st.color_picker("Background", value="#FFFFFF").lstrip("#")
 
-    with right:
-        st.subheader("Digital Layer")
-        st.markdown("**Excel Mode**")
-        use_custom_resolution = st.checkbox(
-            "Use exact resolution",
-            value=True,
-            help="Set the exact number of Excel columns and rows in the generated canvas.",
-        )
+    st.divider()
+    st.subheader("Digital Layer")
+    st.markdown("**Excel Mode**")
+    st.caption("Defines the shared digital canvas used by both Excel and Physical outputs.")
+    use_custom_resolution = st.checkbox(
+        "Use exact resolution",
+        value=True,
+        help="Set the exact number of Excel columns and rows in the generated canvas.",
+    )
+    digital_left, digital_right = st.columns([1, 1])
+    with digital_left:
         if use_custom_resolution:
             width_cells = st.number_input(
                 "Width cells",
                 min_value=1,
                 max_value=2000,
-                value=240,
-                step=10,
-                help="Number of Excel columns across the canvas.",
+                value=128,
+                step=8,
+                help="Number of Excel columns across the shared canvas.",
             )
             height_cells = st.number_input(
                 "Height cells",
                 min_value=1,
                 max_value=2000,
-                value=170,
-                step=10,
+                value=128,
+                step=8,
                 help="Number of Excel rows from top to bottom.",
             )
             resolution = (int(width_cells), int(height_cells))
@@ -84,16 +87,16 @@ def main() -> None:
                 max_value=512,
                 value=128,
                 step=8,
-                help="Sets the longest canvas side in cells while preserving the selected aspect ratio.",
+                help="Sets the longest shared canvas side while preserving the selected aspect ratio.",
             )
             resolution = None
-
+    with digital_right:
         color_count = st.slider(
             "Indexed colors",
             min_value=2,
             max_value=256,
             value=48,
-            help="Maximum number of numbered colors in the Color Index.",
+            help="Maximum number of numbered colors in the Excel Color Index.",
         )
         cell_size = st.number_input(
             "Excel cell display size",
@@ -105,40 +108,61 @@ def main() -> None:
         )
 
     st.divider()
-    st.subheader("Physical Layer")
-    st.caption("Optional production settings for turning the Digital Layer into printable physical materials.")
-    st.markdown("**Print Mode**")
-    print_mode = st.checkbox(
-        "Enable Print Mode",
-        value=False,
-        help="Adds poster splitting and optional printable color-mask sheets to the workbook.",
+    st.subheader("Outputs")
+    include_excel_output = st.checkbox(
+        "Excel Workbook",
+        value=True,
+        help="Includes the Digital Layer Reference, Template, and Color Index sheets.",
     )
-    if print_mode:
+    physical_output = st.checkbox(
+        "Physical Output",
+        value=False,
+        help="Includes Print Mode sheets using the Digital Layer's indexed colors and numbers.",
+    )
+    if physical_output:
+        st.markdown("### Physical Layer")
+        st.markdown("**Print Mode**")
+        st.caption(
+            "Uses the same paper size, resolution, indexed colors, and color numbers as the Digital Layer."
+        )
         print_left, print_right = st.columns([1, 1])
         with print_left:
-            st.markdown("**Poster splitting**")
-            poster_pages_wide = st.number_input(
-                "Pages wide",
-                min_value=1,
-                max_value=20,
-                value=1,
-                step=1,
-                help="Number of printed pages across the poster.",
+            split_poster = st.checkbox(
+                "Poster Split",
+                value=True,
+                help="Tile the shared canvas across several printed sheets when one page is too small.",
             )
-            poster_pages_tall = st.number_input(
-                "Pages tall",
-                min_value=1,
-                max_value=20,
-                value=1,
-                step=1,
-                help="Number of printed pages from top to bottom.",
-            )
+            if split_poster:
+                poster_pages_wide = st.number_input(
+                    "Pages wide",
+                    min_value=1,
+                    max_value=20,
+                    value=2,
+                    step=1,
+                    help="Number of printed pages across the poster.",
+                )
+                poster_pages_tall = st.number_input(
+                    "Pages tall",
+                    min_value=1,
+                    max_value=20,
+                    value=2,
+                    step=1,
+                    help="Number of printed pages from top to bottom.",
+                )
+            else:
+                poster_pages_wide = 1
+                poster_pages_tall = 1
         with print_right:
-            st.markdown("**Color masks**")
             generate_color_masks = st.checkbox(
-                "Generate color masks",
+                "Color Masks",
                 value=False,
-                help="Creates printable black-and-white mask sheets showing where each indexed color is used.",
+                help="Creates masks whose numbers match both the Color Index and Material Palette.",
+            )
+            st.checkbox(
+                "Material Palette",
+                value=True,
+                disabled=True,
+                help="Always included. Uses the Digital Layer's exact indexed colors and numbers.",
             )
             if generate_color_masks:
                 max_color_masks = st.number_input(
@@ -160,7 +184,14 @@ def main() -> None:
     if uploaded_file is not None:
         st.image(uploaded_file, caption=uploaded_file.name, use_container_width=True)
 
-    if st.button("Generate workbook", type="primary", disabled=uploaded_file is None):
+    if not include_excel_output and not physical_output:
+        st.warning("Select at least one output: Excel Workbook or Physical Output.")
+
+    if st.button(
+        "Generate workbook",
+        type="primary",
+        disabled=uploaded_file is None or (not include_excel_output and not physical_output),
+    ):
         if uploaded_file is None:
             st.warning("Upload an image first.")
             return
@@ -176,7 +207,8 @@ def main() -> None:
                 orientation=orientation,
                 fit=fit,
                 background_color=background_color,
-                print_mode=print_mode,
+                include_excel_output=include_excel_output,
+                physical_output=physical_output,
                 poster_pages=(int(poster_pages_wide), int(poster_pages_tall)),
                 generate_color_masks=generate_color_masks,
                 max_color_masks=int(max_color_masks) if max_color_masks is not None else None,
@@ -201,7 +233,8 @@ def _build_workbook(
     orientation: str,
     fit: str,
     background_color: str,
-    print_mode: bool,
+    include_excel_output: bool,
+    physical_output: bool,
     poster_pages: tuple[int, int],
     generate_color_masks: bool,
     max_color_masks: int | None,
@@ -226,7 +259,8 @@ def _build_workbook(
             orientation=orientation,
             fit=fit,
             background_color=background_color,
-            print_mode=print_mode,
+            include_excel_output=include_excel_output,
+            physical_output=physical_output,
             poster_pages=poster_pages,
             generate_color_masks=generate_color_masks,
             max_color_masks=max_color_masks,
