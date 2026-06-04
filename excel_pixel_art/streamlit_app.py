@@ -13,6 +13,7 @@ if __package__ in {None, ""}:
 
 from excel_pixel_art.canvas import CANVAS_PRESETS, FIT_MODES, ORIENTATIONS
 from excel_pixel_art.converter import image_to_excel
+from excel_pixel_art.physical import image_to_physical_excel
 
 
 def main() -> None:
@@ -323,6 +324,7 @@ def _build_digital_workbook(
     return _build_workbook(
         uploaded_file=uploaded_file,
         output_suffix="digital",
+        converter=image_to_excel,
         max_size=max_size,
         cell_size=cell_size,
         color_count=color_count,
@@ -331,8 +333,6 @@ def _build_digital_workbook(
         orientation=orientation,
         fit=fit,
         background_color=background_color,
-        include_excel_output=True,
-        physical_output=False,
     )
 
 
@@ -353,31 +353,22 @@ def _build_physical_workbook(
     return _build_workbook(
         uploaded_file=uploaded_file,
         output_suffix="physical",
-        max_size=96,
-        cell_size=3.0,
-        color_count=48,
-        canvas_size=None,
-        resolution=None,
-        orientation="auto",
-        fit="contain",
-        background_color="FFFFFF",
-        include_excel_output=False,
-        physical_output=True,
-        physical_max_size=max_size,
-        physical_cell_size=cell_size,
+        converter=image_to_physical_excel,
+        max_size=max_size,
+        cell_size=cell_size,
         material_color_count=material_color_count,
-        physical_canvas_size=canvas_size,
-        physical_resolution=resolution,
-        physical_orientation=orientation,
-        physical_fit=fit,
-        physical_background_color=background_color,
+        canvas_size=canvas_size,
+        resolution=resolution,
+        orientation=orientation,
+        fit=fit,
+        background_color=background_color,
         poster_pages=poster_pages,
         generate_color_masks=generate_color_masks,
         max_color_masks=max_color_masks,
     )
 
 
-def _build_workbook(uploaded_file, output_suffix: str, **options) -> tuple[bytes, str]:
+def _build_workbook(uploaded_file, output_suffix: str, converter, **options) -> tuple[bytes, str]:
     suffix = Path(uploaded_file.name).suffix or ".image"
     stem = _safe_stem(uploaded_file.name)
 
@@ -387,7 +378,7 @@ def _build_workbook(uploaded_file, output_suffix: str, **options) -> tuple[bytes
         output_path = directory_path / f"{stem}_{output_suffix}.xlsx"
 
         image_path.write_bytes(uploaded_file.getvalue())
-        image_to_excel(image_path=image_path, output_path=output_path, **options)
+        converter(image_path=image_path, output_path=output_path, **options)
         return output_path.read_bytes(), output_path.name
 
 

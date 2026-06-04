@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 excel-pixel-art = "excel_pixel_art.cli:main"
+excel-pixel-art-physical = "excel_pixel_art.physical:main"
 excel-pixel-art-web = "excel_pixel_art.web:main"
 excel-pixel-art-streamlit = "excel_pixel_art.streamlit_runner:main"
 
