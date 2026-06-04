@@ -1,9 +1,17 @@
 import unittest
 
-from excel_pixel_art.web import _parse_multipart_form, _parse_optional_resolution, _safe_stem
+from excel_pixel_art.web import _parse_multipart_form, _parse_optional_resolution, _render_page, _safe_stem
 
 
 class WebTest(unittest.TestCase):
+    def test_form_defaults_are_32_square_and_24_colors(self):
+        page = _render_page()
+
+        self.assertIn('name="max_size" min="1" max="512" value="32"', page)
+        self.assertIn('name="resolution_width" min="1" max="2000" value="32"', page)
+        self.assertIn('name="resolution_height" min="1" max="2000" value="32"', page)
+        self.assertIn('name="color_count" min="2" max="256" value="24"', page)
+
     def test_safe_stem_normalizes_uploaded_filename(self):
         self.assertEqual(_safe_stem("Under The Wave!.jpg"), "under-the-wave")
         self.assertEqual(_safe_stem("..."), "image")

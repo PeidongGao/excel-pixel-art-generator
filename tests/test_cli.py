@@ -11,6 +11,12 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(parser.prog, "excel-pixel-art")
 
+    def test_default_detail_settings_are_32_cells_and_24_colors(self):
+        args = build_parser().parse_args(["image/photo.jpg"])
+
+        self.assertEqual(args.max_size, 32)
+        self.assertEqual(args.colors, 24)
+
     def test_canvas_arguments_are_parsed(self):
         args = build_parser().parse_args(
             [

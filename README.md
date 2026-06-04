@@ -4,13 +4,35 @@ Convert an image into independent Digital and Physical pixel-art production outp
 
 Excel Pixel Art Generator is a WillGaoLab product made by William (Peidong) Gao.
 
-## Version 2
+## Version 3
+
+Version 3 keeps the existing Digital Layer and Physical workbook workflows while upgrading Physical Poster Split and Printable PDF output.
+
+Poster Split now:
+
+- Treats the configured Physical canvas resolution and palette as the master design.
+- Requires the master width and height to divide evenly across the selected page split.
+- Shows a validation summary with the master cells, page split, cells per page, and a precise invalid reason.
+- Prints every poster tile on a true A4 portrait PDF page.
+- Preserves global canvas coordinates and one global color index across all tiles.
+
+Each printable poster PDF contains three ordered vector page sets:
+
+1. Colored numbered-grid tiles.
+2. Clean color-reference tiles.
+3. Blank numbered-template tiles.
+
+The PDF is generated with vector rectangles, vector grid lines, and real PDF text so it remains sharp when zoomed or printed. No full-page tile bitmap is embedded.
+
+The project-wide interactive defaults are A4, `32 x 32` cells, and 24 colors.
+
+## Version 2 Architecture
 
 Version 2 separates the project into two independent workflows. The uploaded image is the only shared input.
 
 ### Digital Layer
 
-The Digital Layer creates the standard Excel pixel-art workbook. Its default configuration is A4, `128 x 128` cells, and 48 indexed colors.
+The Digital Layer creates the standard Excel pixel-art workbook. Its default configuration is A4, `32 x 32` cells, and 24 indexed colors.
 
 Each Digital workbook includes:
 
@@ -33,12 +55,14 @@ Material palette modes:
 Physical output options:
 
 - `Workbook` - print reference, numbered print template, material palette, and optional mask sheets.
-- `Printable PDF` - printable image pages, with optional poster splitting.
+- `Printable PDF` - true A4 vector poster pages with vector cell rectangles, grid lines, coordinates, and real PDF text.
 - `Masks` - a ZIP containing one black-and-white mask image per selected material color.
 
 Selected Physical outputs are packaged together into one downloadable ZIP.
 
 Poster Split controls how the Physical workbook and printable PDF are divided across pages. Color Masks remain a separately selectable output.
+
+Printable poster PDFs remain sharp when zoomed or printed because they do not embed rasterized full-page tile images. Each split produces three vector page sets: colored numbered-grid tiles, clean color-reference tiles, and blank numbered-template tiles.
 
 LEGO and Liquitex colors are screen approximations used for matching. Physical color appearance varies by lighting, material, paint opacity, surface, and drying.
 
@@ -151,7 +175,7 @@ Control how many unique indexed colors are used:
 excel-pixel-art image/IMG_0148.JPG -o photo_32_colors.xlsx --resolution 160x100 --colors 32
 ```
 
-`--colors` keeps the color index practical for photos by merging near-duplicate colors into a smaller palette. Default: `48`.
+`--colors` keeps the color index practical for photos by merging near-duplicate colors into a smaller palette. Default: `24`.
 
 High-detail A4 example:
 
@@ -163,7 +187,7 @@ This keeps the workbook print setup as A4 landscape while using a `240 x 170` Ex
 
 ### Physical Layer CLI
 
-Generate the default A4, `128 x 128`, 48-color Adaptive Physical workbook:
+Generate the default A4, `32 x 32`, 24-color Adaptive Physical workbook:
 
 ```bash
 excel-pixel-art-physical path/to/image.png
@@ -225,7 +249,7 @@ ISO and common format dimensions are based on Engineering ToolBox's paper drafti
 Canvas options:
 
 - `--resolution WIDTHxHEIGHT`
-- `--colors 48`
+- `--colors 24`
 - `--orientation auto|portrait|landscape`
 - `--fit contain|cover`
 - `--background-color FFFFFF`

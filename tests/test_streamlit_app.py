@@ -42,13 +42,36 @@ class StreamlitAppTest(unittest.TestCase):
         selectboxes = {selectbox.label: selectbox.value for selectbox in app.selectbox}
 
         self.assertEqual(selectboxes["Paper size"], "a4")
-        self.assertEqual(number_inputs["Width cells"], 128)
-        self.assertEqual(number_inputs["Height cells"], 128)
-        self.assertEqual(sliders["Indexed colors"], 48)
+        self.assertEqual(number_inputs["Width cells"], 32)
+        self.assertEqual(number_inputs["Height cells"], 32)
+        self.assertEqual(sliders["Indexed colors"], 24)
         self.assertEqual(selectboxes["Physical paper size"], "a4")
-        self.assertEqual(number_inputs["Physical width cells"], 128)
-        self.assertEqual(number_inputs["Physical height cells"], 128)
-        self.assertEqual(sliders["Material Palette colors"], 48)
+        self.assertEqual(number_inputs["Physical width cells"], 32)
+        self.assertEqual(number_inputs["Physical height cells"], 32)
+        self.assertEqual(sliders["Material Palette colors"], 24)
+        self.assertIn("Status: **Valid**", app.success[0].value)
+
+    def test_invalid_poster_split_displays_divisibility_reason(self):
+        app = AppTest.from_file("excel_pixel_art/streamlit_app.py").run(timeout=20)
+
+        app.checkbox[2].set_value(True)
+        app.number_input[6].set_value(3)
+        app.run(timeout=20)
+
+        self.assertEqual(len(app.error), 1)
+        self.assertIn("Status: **Invalid**", app.error[0].value)
+        self.assertIn("Width 32 is not divisible by 3.", app.error[0].value)
+
+    def test_poster_split_requires_exact_resolution_for_verification(self):
+        app = AppTest.from_file("excel_pixel_art/streamlit_app.py").run(timeout=20)
+
+        app.checkbox[1].set_value(False)
+        app.checkbox[2].set_value(True)
+        app.run(timeout=20)
+
+        self.assertEqual(len(app.warning), 1)
+        self.assertIn("Status: Pending", app.warning[0].value)
+        self.assertIn("Enable exact physical resolution", app.warning[0].value)
 
     def test_digital_and_physical_builders_create_separate_outputs(self):
         uploaded_file = UploadedImage()

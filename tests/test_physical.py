@@ -6,6 +6,7 @@ from openpyxl import load_workbook
 from PIL import Image
 
 from excel_pixel_art.physical import (
+    build_parser,
     image_to_physical_excel,
     image_to_physical_masks,
     image_to_physical_pdf,
@@ -15,6 +16,13 @@ from excel_pixel_art.physical import (
 
 
 class PhysicalLayerTest(unittest.TestCase):
+    def test_physical_cli_defaults_are_32_square_and_24_colors(self):
+        args = build_parser().parse_args(["image.png"])
+
+        self.assertEqual(args.max_size, 32)
+        self.assertEqual(args.resolution, (32, 32))
+        self.assertEqual(args.material_colors, 24)
+
     def test_physical_workbook_has_independent_palette_tiles_and_aligned_masks(self):
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
@@ -73,7 +81,7 @@ class PhysicalLayerTest(unittest.TestCase):
                 0,
             )
 
-    def test_physical_defaults_are_a4_128_square_and_48_colors(self):
+    def test_physical_defaults_are_a4_32_square_and_24_colors(self):
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
             image_path = directory_path / "source.png"
@@ -84,9 +92,9 @@ class PhysicalLayerTest(unittest.TestCase):
 
             workbook = load_workbook(output_path)
             template = workbook["Print Template"]
-            self.assertEqual((template.max_column, template.max_row), (128, 128))
+            self.assertEqual((template.max_column, template.max_row), (32, 32))
             self.assertEqual(template.page_setup.paperSize, 9)
-            self.assertLessEqual(workbook["Material Palette"].max_row - 1, 48)
+            self.assertLessEqual(workbook["Material Palette"].max_row - 1, 24)
 
     def test_fixed_material_palettes_include_names_and_references(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -130,7 +138,11 @@ class PhysicalLayerTest(unittest.TestCase):
             image_to_physical_pdf(image_path, pdf_path, resolution=(4, 2), poster_pages=(2, 1))
             image_to_physical_masks(image_path, masks_path, resolution=(4, 2), palette_mode="liquitex_basics_24")
 
-            self.assertTrue(pdf_path.read_bytes().startswith(b"%PDF"))
+            pdf_bytes = pdf_path.read_bytes()
+            self.assertTrue(pdf_bytes.startswith(b"%PDF"))
+            self.assertEqual(pdf_bytes.count(b"/MediaBox"), 6)
+            self.assertIn(b"/Subtype /Type1", pdf_bytes)
+            self.assertNotIn(b"/Subtype /Image", pdf_bytes)
             self.assertTrue(masks_path.read_bytes().startswith(b"PK"))
 
     def test_rejects_invalid_physical_options(self):
