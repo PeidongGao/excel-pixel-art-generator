@@ -43,7 +43,7 @@ def main() -> None:
 def _digital_layer(uploaded_file) -> None:
     st.header("Digital Layer")
     st.markdown("**Excel Mode**")
-    st.caption("V1 Excel pixel-art workflow and workbook output.")
+    st.caption("Excel pixel-art workflow and workbook output.")
 
     left, right = st.columns([1, 1])
     with left:
