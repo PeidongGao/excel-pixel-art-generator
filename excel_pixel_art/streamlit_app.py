@@ -85,16 +85,16 @@ def _digital_layer(uploaded_file) -> None:
                 "Width cells",
                 min_value=1,
                 max_value=2000,
-                value=240,
-                step=10,
+                value=128,
+                step=8,
                 key="digital_width",
             )
             height_cells = st.number_input(
                 "Height cells",
                 min_value=1,
                 max_value=2000,
-                value=170,
-                step=10,
+                value=128,
+                step=8,
                 key="digital_height",
             )
             resolution = (int(width_cells), int(height_cells))
