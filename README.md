@@ -140,7 +140,7 @@ Sample photo:
 Personal-use rights and liability:
 
 - Excel Pixel Art Generator is a WillGaoLab product made by William (Peidong) Gao. The WillGaoLab name, project identity, documentation, source code organization, and product presentation are maintained by William (Peidong) Gao unless otherwise stated.
-- The hosted Streamlit app uses Microsoft Clarity to process usage and technical analytics data. Microsoft Clarity and Streamlit Community Cloud may process data under their own terms and privacy policies.
+- The hosted Streamlit app uses Google Analytics 4 and Microsoft Clarity to process usage and technical analytics data. Google, Microsoft Clarity, and Streamlit Community Cloud may process data under their own terms and privacy policies.
 - This project is provided for personal, educational, research, and non-commercial creative use only.
 - Do not use this tool, the sample images, generated templates, generated workbooks, or derivative outputs for commercial sale, paid products, merchandise, advertising, client work, or other revenue-generating activity without independently securing all required rights and permissions.
 - Users are solely responsible for ensuring they have the legal right to upload, transform, distribute, print, share, or otherwise use any image they process with this tool.

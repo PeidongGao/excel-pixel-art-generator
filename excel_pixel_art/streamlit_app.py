@@ -11,7 +11,7 @@ import streamlit as st
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from excel_pixel_art.analytics import render_clarity_analytics
+from excel_pixel_art.analytics import render_analytics
 from excel_pixel_art.canvas import CANVAS_PRESETS, FIT_MODES, ORIENTATIONS
 from excel_pixel_art.converter import image_to_excel
 from excel_pixel_art.physical import image_to_physical_excel, image_to_physical_masks, image_to_physical_pdf
@@ -24,7 +24,7 @@ def main() -> None:
         page_icon="",
         layout="wide",
     )
-    render_clarity_analytics()
+    render_analytics()
 
     st.title("Excel Pixel Art Generator")
     st.caption("Upload one image, then generate completely separate Digital and Physical outputs.")
